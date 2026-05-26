@@ -59,4 +59,43 @@ describe('ProfileStorage (in-memory)', () => {
   it('throws when removing a missing profile', async () => {
     await expect(storage.remove('does-not-exist')).rejects.toThrow();
   });
+
+  it('round-trips a profile with schema v1 extensions', async () => {
+    const storage = createInMemoryStorage();
+    const created = await storage.create({
+      name: 'ext',
+      host: 'h',
+      port: 22,
+      username: 'u',
+      auth: { kind: 'password', password: 'p' },
+      tags: ['prod', 'web'],
+      snippets: [{ label: 'uptime', command: 'uptime' }],
+      envVars: { EDITOR: 'vim' },
+      jumpHostId: null,
+    });
+    expect(created.tags).toEqual(['prod', 'web']);
+    expect(created.snippets).toEqual([{ label: 'uptime', command: 'uptime' }]);
+    expect(created.envVars).toEqual({ EDITOR: 'vim' });
+    expect(created.jumpHostId).toBeNull();
+  });
+
+  it('stores and retrieves connection history fields', async () => {
+    const storage = createInMemoryStorage();
+    const now = new Date().toISOString();
+    const created = await storage.create({
+      name: 'hist',
+      host: 'h',
+      port: 22,
+      username: 'u',
+      auth: { kind: 'password', password: 'p' },
+    });
+    const updated = await storage.update(created.id, {
+      lastConnectedAt: now,
+      lastHostKeyFingerprint: 'SHA256:abc123',
+      lastErrorCategory: 'auth_failed',
+    });
+    expect(updated.lastConnectedAt).toBe(now);
+    expect(updated.lastHostKeyFingerprint).toBe('SHA256:abc123');
+    expect(updated.lastErrorCategory).toBe('auth_failed');
+  });
 });
