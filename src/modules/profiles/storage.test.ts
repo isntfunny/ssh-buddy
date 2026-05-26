@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { Profile, NewProfileInput } from './types';
+import { describe, it, expect, beforeEach } from 'vitest';
+import type { NewProfileInput } from './types';
 import { createInMemoryStorage } from './storage';
 
 const baseInput: NewProfileInput = {
