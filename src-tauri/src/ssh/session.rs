@@ -4,7 +4,7 @@ use russh::keys::decode_secret_key;
 use russh::keys::key;
 use russh::{ChannelMsg, Disconnect};
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, oneshot, Mutex};
 
 use crate::error::{AppError, AppResult};
 
@@ -47,6 +47,7 @@ pub struct Session {
     pub id: String,
     handle: Arc<Mutex<Handle<ClientHandler>>>,
     control_tx: mpsc::Sender<ChannelCommand>,
+    done_rx: Mutex<oneshot::Receiver<()>>,
 }
 
 pub struct OpenOutcome {
@@ -103,11 +104,13 @@ impl Session {
 
         let (tx, output_rx) = mpsc::channel::<Vec<u8>>(64);
         let (control_tx, mut control_rx) = mpsc::channel::<ChannelCommand>(64);
+        let (done_tx, done_rx) = oneshot::channel::<()>();
 
         let session = Session {
             id: id.clone(),
             handle: Arc::new(Mutex::new(handle)),
             control_tx,
+            done_rx: Mutex::new(done_rx),
         };
 
         // The reader task owns the channel so input and resize commands can be
@@ -153,6 +156,7 @@ impl Session {
                     }
                 }
             }
+            let _ = done_tx.send(());
         });
 
         Ok(OpenOutcome { session, output_rx })
@@ -173,11 +177,16 @@ impl Session {
     }
 
     pub async fn close(&self) -> AppResult<()> {
-        let _ = self.control_tx.send(ChannelCommand::Close).await;
-        let handle = self.handle.lock().await;
-        handle
-            .disconnect(Disconnect::ByApplication, "user requested", "en")
-            .await?;
+        let send_ok = self.control_tx.send(ChannelCommand::Close).await.is_ok();
+        if send_ok {
+            // Wait for pump task to finish before disconnecting the handle
+            let mut rx = self.done_rx.lock().await;
+            let _ = (&mut *rx).await;
+            let handle = self.handle.lock().await;
+            handle
+                .disconnect(Disconnect::ByApplication, "user requested", "en")
+                .await?;
+        }
         Ok(())
     }
 }

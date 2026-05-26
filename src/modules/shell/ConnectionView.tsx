@@ -14,7 +14,7 @@ export function ConnectionView({ profile }: Props) {
 
   useEffect(() => {
     session.setOutputHandler((bytes) => termRef.current?.write(bytes));
-  }, [session]);
+  }, [session.setOutputHandler]);
 
   const handleConnect = useCallback(() => {
     const dims = termRef.current?.fit() ?? { cols: 80, rows: 24 };
