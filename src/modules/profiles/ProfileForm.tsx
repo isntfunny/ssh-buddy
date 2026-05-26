@@ -6,10 +6,13 @@ import {
   PasswordInput,
   SegmentedControl,
   Stack,
+  Text,
   Textarea,
   TextInput,
 } from '@mantine/core';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { isTauri } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import type { AuthMethod, NewProfileInput, Profile } from './types';
 
 type Props = {
@@ -51,6 +54,9 @@ function fromProfile(p?: Profile): FormValues {
 }
 
 export function ProfileForm({ initial, onSubmit, onCancel }: Props) {
+  const [keyError, setKeyError] = useState<string | null>(null);
+  const [keyValidating, setKeyValidating] = useState(false);
+
   const form = useForm<FormValues>({
     initialValues: fromProfile(initial),
     validate: {
@@ -66,6 +72,25 @@ export function ProfileForm({ initial, onSubmit, onCancel }: Props) {
     form.resetDirty(fromProfile(initial));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial?.id]);
+
+  const validateKey = async (pem: string, passphrase: string) => {
+    if (!pem.trim() || !isTauri()) {
+      setKeyError(null);
+      return;
+    }
+    setKeyValidating(true);
+    try {
+      await invoke('ssh_validate_private_key', {
+        pem,
+        passphrase: passphrase || null,
+      });
+      setKeyError(null);
+    } catch (e) {
+      setKeyError(String(e));
+    } finally {
+      setKeyValidating(false);
+    }
+  };
 
   return (
     <form
@@ -103,12 +128,23 @@ export function ProfileForm({ initial, onSubmit, onCancel }: Props) {
               minRows={6}
               autosize
               placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+              onBlur={(e) => validateKey(e.target.value, form.values.passphrase)}
               {...form.getInputProps('pem')}
             />
             <PasswordInput
               label="Passphrase (optional)"
               {...form.getInputProps('passphrase')}
             />
+            {keyError && (
+              <Text c="red" size="sm">
+                Key error: {keyError}
+              </Text>
+            )}
+            {keyValidating && (
+              <Text c="dimmed" size="sm">
+                Validating key…
+              </Text>
+            )}
           </>
         )}
         <Textarea label="Notes (optional)" autosize {...form.getInputProps('notes')} />

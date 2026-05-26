@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::ssh::manager::SessionManager;
 use crate::ssh::session::{AuthMethod, ConnectParams, Session};
 
@@ -110,4 +110,32 @@ pub async fn ssh_disconnect(
 ) -> AppResult<()> {
     let session = manager.remove(&session_id)?;
     session.close().await
+}
+
+#[tauri::command]
+pub async fn ssh_validate_private_key(
+    pem: String,
+    passphrase: Option<String>,
+) -> AppResult<String> {
+    use russh::keys::decode_secret_key;
+    decode_secret_key(&pem, passphrase.as_deref())
+        .map_err(|e| AppError::Ssh(format!("Key parse error: {e}")))?;
+    Ok("Key is valid".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn validate_private_key_rejects_invalid_pem() {
+        let result = ssh_validate_private_key("not-a-key".into(), None).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn validate_private_key_rejects_empty() {
+        let result = ssh_validate_private_key(String::new(), None).await;
+        assert!(result.is_err());
+    }
 }

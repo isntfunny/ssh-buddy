@@ -12,6 +12,7 @@ pub fn run() {
             commands::ssh::ssh_send_input,
             commands::ssh::ssh_resize,
             commands::ssh::ssh_disconnect,
+            commands::ssh::ssh_validate_private_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
