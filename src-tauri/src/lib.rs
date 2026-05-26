@@ -2,10 +2,21 @@ pub mod commands;
 pub mod error;
 pub mod ssh;
 
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
+        .setup(|app| {
+            let app_dir = app
+                .path()
+                .app_local_data_dir()
+                .expect("failed to resolve app data dir");
+            let known_hosts_path = app_dir.join("known_hosts.json");
+            app.manage(ssh::known_hosts::KnownHostsStore::new(known_hosts_path));
+            Ok(())
+        })
         .manage(ssh::manager::SessionManager::new())
         .invoke_handler(tauri::generate_handler![
             commands::ssh::ssh_connect,
@@ -13,6 +24,8 @@ pub fn run() {
             commands::ssh::ssh_resize,
             commands::ssh::ssh_disconnect,
             commands::ssh::ssh_validate_private_key,
+            commands::ssh::ssh_trust_host_key,
+            commands::ssh::ssh_reject_host_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

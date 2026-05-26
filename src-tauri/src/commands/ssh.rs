@@ -3,6 +3,7 @@ use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
+use crate::ssh::known_hosts::{HostKeyStatus, KnownHostsStore};
 use crate::ssh::manager::SessionManager;
 use crate::ssh::session::{AuthMethod, ConnectParams, Session};
 
@@ -45,15 +46,51 @@ pub struct OutputEvent {
     pub bytes: Vec<u8>,
 }
 
+/// Returned to the frontend so it knows whether to show a TOFU warning.
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum ConnectOutcome {
+    /// Host key is already trusted.
+    Connected {
+        session_id: String,
+        fingerprint: String,
+    },
+    /// Host key has never been seen — frontend must ask user to trust or reject.
+    NewHostKey {
+        session_id: String,
+        fingerprint: String,
+    },
+}
+
+fn start_output_pump(
+    app: AppHandle,
+    session_id: String,
+    mut rx: tokio::sync::mpsc::Receiver<Vec<u8>>,
+) {
+    tauri::async_runtime::spawn(async move {
+        while let Some(bytes) = rx.recv().await {
+            let _ = app.emit(
+                &format!("ssh:output:{session_id}"),
+                OutputEvent {
+                    session_id: session_id.clone(),
+                    bytes,
+                },
+            );
+        }
+        let _ = app.emit(&format!("ssh:closed:{session_id}"), ());
+    });
+}
+
 #[tauri::command]
 pub async fn ssh_connect(
     app: AppHandle,
     manager: State<'_, SessionManager>,
+    known_hosts: State<'_, KnownHostsStore>,
     request: ConnectRequest,
-) -> AppResult<String> {
+) -> AppResult<ConnectOutcome> {
     let id = Uuid::new_v4().to_string();
     let params = ConnectParams {
-        host: request.host,
+        host: request.host.clone(),
         port: request.port,
         username: request.username,
         auth: request.auth.into(),
@@ -61,25 +98,51 @@ pub async fn ssh_connect(
         initial_rows: request.initial_rows,
     };
     let outcome = Session::open(id.clone(), params).await?;
-    manager.insert(outcome.session);
+    let fingerprint = outcome.session.fingerprint.clone();
 
-    let app_for_pump = app.clone();
-    let id_for_pump = id.clone();
-    let mut rx = outcome.output_rx;
-    tauri::async_runtime::spawn(async move {
-        while let Some(bytes) = rx.recv().await {
-            let _ = app_for_pump.emit(
-                &format!("ssh:output:{id_for_pump}"),
-                OutputEvent {
-                    session_id: id_for_pump.clone(),
-                    bytes,
-                },
-            );
+    match known_hosts.check(&request.host, request.port, &fingerprint)? {
+        HostKeyStatus::Changed { expected } => {
+            outcome.session.close().await.ok();
+            Err(AppError::Ssh(format!(
+                "Host key changed! Expected {expected}, got {fingerprint}. Aborting — possible MITM."
+            )))
         }
-        let _ = app_for_pump.emit(&format!("ssh:closed:{id_for_pump}"), ());
-    });
+        HostKeyStatus::Trusted => {
+            manager.insert(outcome.session);
+            start_output_pump(app, id.clone(), outcome.output_rx);
+            Ok(ConnectOutcome::Connected {
+                session_id: id,
+                fingerprint,
+            })
+        }
+        HostKeyStatus::New => {
+            manager.insert(outcome.session);
+            start_output_pump(app, id.clone(), outcome.output_rx);
+            Ok(ConnectOutcome::NewHostKey {
+                session_id: id,
+                fingerprint,
+            })
+        }
+    }
+}
 
-    Ok(id)
+#[tauri::command]
+pub async fn ssh_trust_host_key(
+    known_hosts: State<'_, KnownHostsStore>,
+    host: String,
+    port: u16,
+    fingerprint: String,
+) -> AppResult<()> {
+    known_hosts.record(&host, port, &fingerprint)
+}
+
+#[tauri::command]
+pub async fn ssh_reject_host_key(
+    manager: State<'_, SessionManager>,
+    session_id: String,
+) -> AppResult<()> {
+    let session = manager.remove(&session_id)?;
+    session.close().await
 }
 
 #[tauri::command]

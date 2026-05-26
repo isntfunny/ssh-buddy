@@ -2,11 +2,21 @@ use async_trait::async_trait;
 use russh::client::{self, Handle};
 use russh::keys::decode_secret_key;
 use russh::keys::key;
+use russh::keys::PublicKeyBase64;
 use russh::{ChannelMsg, Disconnect};
+use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot, Mutex};
 
 use crate::error::{AppError, AppResult};
+
+/// Compute a SHA256 hex fingerprint string of an SSH host key.
+fn compute_fingerprint(key: &key::PublicKey) -> String {
+    let bytes = key.public_key_bytes();
+    let hash = Sha256::digest(&bytes);
+    let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
+    format!("SHA256:{hex}")
+}
 
 #[derive(Debug, Clone)]
 pub enum AuthMethod {
@@ -27,7 +37,9 @@ pub struct ConnectParams {
     pub initial_rows: u32,
 }
 
-struct ClientHandler;
+struct ClientHandler {
+    seen_fingerprint: Arc<tokio::sync::Mutex<Option<String>>>,
+}
 
 #[async_trait]
 impl client::Handler for ClientHandler {
@@ -35,9 +47,10 @@ impl client::Handler for ClientHandler {
 
     async fn check_server_key(
         &mut self,
-        _server_public_key: &key::PublicKey,
+        server_public_key: &key::PublicKey,
     ) -> Result<bool, Self::Error> {
-        // MVP: trust on first sight. TOFU + known_hosts persistence lands in a later plan.
+        let fingerprint = compute_fingerprint(server_public_key);
+        *self.seen_fingerprint.lock().await = Some(fingerprint);
         Ok(true)
     }
 }
@@ -45,6 +58,7 @@ impl client::Handler for ClientHandler {
 /// A handle to one connected SSH session with an open shell channel.
 pub struct Session {
     pub id: String,
+    pub fingerprint: String,
     handle: Arc<Mutex<Handle<ClientHandler>>>,
     control_tx: mpsc::Sender<ChannelCommand>,
     done_rx: Mutex<oneshot::Receiver<()>>,
@@ -66,7 +80,11 @@ impl Session {
     pub async fn open(id: String, params: ConnectParams) -> AppResult<OpenOutcome> {
         let config = Arc::new(client::Config::default());
         let addrs = (params.host.as_str(), params.port);
-        let handler = ClientHandler;
+        let seen_fp: Arc<tokio::sync::Mutex<Option<String>>> =
+            Arc::new(tokio::sync::Mutex::new(None));
+        let handler = ClientHandler {
+            seen_fingerprint: seen_fp.clone(),
+        };
         let mut handle = client::connect(config, addrs, handler).await?;
 
         let auth_ok = match params.auth {
@@ -106,8 +124,15 @@ impl Session {
         let (control_tx, mut control_rx) = mpsc::channel::<ChannelCommand>(64);
         let (done_tx, done_rx) = oneshot::channel::<()>();
 
+        let fingerprint = seen_fp
+            .lock()
+            .await
+            .clone()
+            .unwrap_or_else(|| "unknown".into());
+
         let session = Session {
             id: id.clone(),
+            fingerprint,
             handle: Arc::new(Mutex::new(handle)),
             control_tx,
             done_rx: Mutex::new(done_rx),
