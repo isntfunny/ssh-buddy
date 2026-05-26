@@ -1,19 +1,11 @@
-import { Button, Stack, Title, Text } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { Text } from '@mantine/core';
+import { AppShell } from './modules/shell/AppShell';
 
 function App() {
   return (
-    <Stack p="xl" gap="md">
-      <Title order={1}>ssh-buddy</Title>
-      <Text c="dimmed">Mantine is wired up.</Text>
-      <Button
-        onClick={() =>
-          notifications.show({ title: 'Hello', message: 'Mantine works.' })
-        }
-      >
-        Test notification
-      </Button>
-    </Stack>
+    <AppShell navbar={<Text c="dimmed">Profiles will go here.</Text>}>
+      <Text>Welcome to ssh-buddy.</Text>
+    </AppShell>
   );
 }
 
