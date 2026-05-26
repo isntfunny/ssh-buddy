@@ -30,12 +30,14 @@ export const Terminal = forwardRef<TerminalHandle, Props>(({ onData, onResize },
       theme: { background: '#1a1b1e' },
       cursorBlink: true,
       scrollback: 10000,
+      rightClickSelectsWord: true,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.loadAddon(new WebLinksAddon());
     term.open(containerRef.current);
     fit.fit();
+    term.focus();  // auto-focus on mount
     onResize(term.cols, term.rows);
     term.onData(onData);
     term.onResize(({ cols, rows }) => onResize(cols, rows));
