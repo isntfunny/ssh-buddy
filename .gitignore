@@ -1,0 +1,43 @@
+# Node / npm / pnpm
+node_modules/
+.npm/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+out/
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/Cargo.lock
+src-tauri/WixTools/
+src-tauri/gen/schemas/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.fleet/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Coverage / tests
+coverage/
+.nyc_output/
+
+# Misc local
+*.log
+.cache/
