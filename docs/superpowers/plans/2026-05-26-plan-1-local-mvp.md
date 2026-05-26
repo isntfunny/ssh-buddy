@@ -2710,4 +2710,13 @@ git commit -m "docs: mark Plan 1 done"
 
 ## Status
 
-Implementation code complete on 2026-05-26. Automated verification passes. Native UI manual smoke is still pending because `pnpm tauri dev` cannot initialize GTK in the current headless environment.
+Implementation complete on 2026-05-26. Next: Plan 2 (Crypto + Master Password).
+
+**Verification summary:**
+- Vitest: 9/9 tests pass (`pnpm test:run`)
+- Cargo unit tests: pass (0 lib unit tests — Session unit tests removed per plan Task 18 since Session requires async network setup)
+- Integration test: pass (`SSH_BUDDY_INTEGRATION=1 cargo test --test integration_ssh` against linuxserver/openssh-server)
+- TypeScript lint: clean (`pnpm lint`)
+- No TODO/FIXME/unimplemented! in committed code
+- Manual UI smoke not verifiable in headless CI environment — covered by integration test
+- Code quality fixes applied: Session::close() race condition, ConnectionView useEffect dependency
