@@ -1,0 +1,12 @@
+services:
+  sshd:
+    image: linuxserver/openssh-server:latest
+    container_name: ssh-buddy-test-sshd
+    environment:
+      - PASSWORD_ACCESS=true
+      - USER_NAME=testuser
+      - USER_PASSWORD=testpass
+      - SUDO_ACCESS=false
+    ports:
+      - "2222:2222"
+    restart: unless-stopped

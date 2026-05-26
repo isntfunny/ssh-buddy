@@ -10,7 +10,10 @@
     "tauri": "tauri",
     "test": "vitest",
     "test:run": "vitest run",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "proxy:dev": "cd backend/ws-ssh-proxy && go run .",
+    "proxy:test": "cd backend/ws-ssh-proxy && go test ./...",
+    "proxy:build": "cd backend/ws-ssh-proxy && go build ./..."
   },
   "engines": {
     "node": ">=20",
@@ -26,6 +29,9 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-fs": "^2.5.1",
     "@tauri-apps/plugin-opener": "^2",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/xterm": "^6.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

@@ -103,7 +103,7 @@ Self-hosted Go service. Only the web build uses it; native builds connect direct
 **Stretch goal — dumb TCP forwarder.** If/when we have a browser-side SSH client (via Go-WASM `sshterm` embed or similar), the proxy collapses to a ~150-line dumb TCP pipe with no SSH knowledge. The protocol over the WebSocket switches accordingly. Both modes can coexist on different endpoints (`/ssh` for MVP, `/tcp` for stretch).
 
 **Endpoints (MVP):**
-- `WSS /ssh` — body of the upgrade request carries connection params and credentials. Proxy authenticates to target SSH server, then bridges PTY + control messages over the WebSocket.
+- `WSS /ssh` — the first WebSocket message carries connection params and credentials. Browser WebSocket upgrades cannot carry a request body. Proxy authenticates to target SSH server, then bridges PTY + control messages over the WebSocket.
 
 **Rules:**
 - Credentials are held in memory only for the duration of the connection. Never written to disk or logs.

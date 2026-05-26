@@ -19,7 +19,9 @@ Runs natively on Android, iOS, macOS, Windows, Linux, and in the browser. Profil
 
 ## Status
 
-Pre-implementation. Design spec lives in [`docs/superpowers/specs/`](docs/superpowers/specs/).
+Plan 1 local MVP is implemented: plaintext local profiles, native desktop SSH via
+Tauri/Rust, and an interactive xterm.js terminal. Design spec lives in
+[`docs/superpowers/specs/`](docs/superpowers/specs/).
 
 ## Stack
 
@@ -35,6 +37,76 @@ Pre-implementation. Design spec lives in [`docs/superpowers/specs/`](docs/superp
 | Web-SSH proxy | Small Go service, self-hosted |
 | Crypto | libsodium (`libsodium-wrappers-sumo` JS / `sodiumoxide` Rust). Argon2id KDF, XChaCha20-Poly1305 for profile blobs |
 | Secret storage | Tauri's `stronghold` plugin on native; in-memory only on web |
+
+## Run locally (Plan 1 MVP)
+
+Requires Node 20+, pnpm 9+, Rust toolchain, and the system dependencies for
+Tauri listed in the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
+
+```bash
+pnpm install
+pnpm tauri dev
+```
+
+A native window opens. Create a profile from the sidebar, then click Connect.
+
+Browser SSH needs the WebSocket SSH proxy:
+
+```bash
+pnpm proxy:dev
+```
+
+Then run the frontend in another terminal:
+
+```bash
+pnpm dev
+```
+
+Open `http://localhost:1420`. By default the browser connects to
+`ws://localhost:8080/ssh`. Override it with `VITE_SSH_BUDDY_WS_PROXY_URL`.
+The proxy performs the SSH handshake for the browser and can observe SSH
+credentials during connection setup.
+
+Proxy configuration:
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `SSH_BUDDY_PROXY_ADDR` | `:8080` | HTTP/WebSocket listen address |
+| `SSH_BUDDY_PROXY_ALLOWED_ORIGINS` | `http://localhost:1420,http://127.0.0.1:1420` | Allowed browser origins |
+| `SSH_BUDDY_PROXY_ALLOWED_TARGETS` | empty | Optional comma-separated target host allowlist |
+| `SSH_BUDDY_PROXY_DENIED_TARGETS` | empty | Optional comma-separated target host denylist |
+| `SSH_BUDDY_PROXY_MAX_SESSIONS_PER_IP` | `10` | Concurrent WebSocket sessions per source IP |
+| `SSH_BUDDY_PROXY_DIAL_TIMEOUT` | `10s` | TCP/SSH dial timeout |
+| `SSH_BUDDY_PROXY_IDLE_TIMEOUT` | `5m` | WebSocket read idle timeout |
+| `SSH_BUDDY_PROXY_MAX_SESSION_TIME` | `2h` | Maximum session duration |
+| `SSH_BUDDY_PROXY_MAX_INIT_BYTES` | `65536` | Maximum first-message size |
+
+Proxy tests:
+
+```bash
+pnpm proxy:test
+pnpm proxy:build
+```
+
+The real SSH proxy integration test is gated:
+
+```bash
+docker compose -f docker-compose.test.yml up -d
+cd backend/ws-ssh-proxy
+SSH_BUDDY_PROXY_INTEGRATION=1 go test ./... -run TestProxyIntegrationConnectAndRunCommand -v
+cd ../..
+docker compose -f docker-compose.test.yml down
+```
+
+For the integration test against a real SSH server:
+
+```bash
+docker compose -f docker-compose.test.yml up -d
+cd src-tauri
+SSH_BUDDY_INTEGRATION=1 cargo test --test integration_ssh
+cd ..
+docker compose -f docker-compose.test.yml down
+```
 
 ## License
 

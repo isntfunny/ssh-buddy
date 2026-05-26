@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { NewProfileInput, Profile } from './types';
-import { createFileStorage } from './storage';
+import { createProfileStorage } from './storage';
 
 export function useProfiles() {
-  const storage = useMemo(() => createFileStorage(), []);
+  const storage = useMemo(() => createProfileStorage(), []);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);

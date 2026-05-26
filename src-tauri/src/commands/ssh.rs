@@ -1,38 +1,113 @@
-// Stub — implementation follows in Task 19
+use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter, State};
+use uuid::Uuid;
+
 use crate::error::AppResult;
 use crate::ssh::manager::SessionManager;
-use tauri::State;
+use crate::ssh::session::{AuthMethod, ConnectParams, Session};
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum WireAuth {
+    Password {
+        password: String,
+    },
+    PrivateKey {
+        pem: String,
+        passphrase: Option<String>,
+    },
+}
+
+impl From<WireAuth> for AuthMethod {
+    fn from(wire: WireAuth) -> Self {
+        match wire {
+            WireAuth::Password { password } => AuthMethod::Password(password),
+            WireAuth::PrivateKey { pem, passphrase } => AuthMethod::PrivateKey { pem, passphrase },
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectRequest {
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub auth: WireAuth,
+    pub initial_cols: u32,
+    pub initial_rows: u32,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OutputEvent {
+    pub session_id: String,
+    pub bytes: Vec<u8>,
+}
 
 #[tauri::command]
 pub async fn ssh_connect(
-    _manager: State<'_, SessionManager>,
+    app: AppHandle,
+    manager: State<'_, SessionManager>,
+    request: ConnectRequest,
 ) -> AppResult<String> {
-    Err(crate::error::AppError::Other("not yet implemented".into()))
+    let id = Uuid::new_v4().to_string();
+    let params = ConnectParams {
+        host: request.host,
+        port: request.port,
+        username: request.username,
+        auth: request.auth.into(),
+        initial_cols: request.initial_cols,
+        initial_rows: request.initial_rows,
+    };
+    let outcome = Session::open(id.clone(), params).await?;
+    manager.insert(outcome.session);
+
+    let app_for_pump = app.clone();
+    let id_for_pump = id.clone();
+    let mut rx = outcome.output_rx;
+    tauri::async_runtime::spawn(async move {
+        while let Some(bytes) = rx.recv().await {
+            let _ = app_for_pump.emit(
+                &format!("ssh:output:{id_for_pump}"),
+                OutputEvent {
+                    session_id: id_for_pump.clone(),
+                    bytes,
+                },
+            );
+        }
+        let _ = app_for_pump.emit(&format!("ssh:closed:{id_for_pump}"), ());
+    });
+
+    Ok(id)
 }
 
 #[tauri::command]
 pub async fn ssh_send_input(
-    _manager: State<'_, SessionManager>,
-    _session_id: String,
-    _data: Vec<u8>,
+    manager: State<'_, SessionManager>,
+    session_id: String,
+    data: Vec<u8>,
 ) -> AppResult<()> {
-    Err(crate::error::AppError::Other("not yet implemented".into()))
+    let session = manager.get(&session_id)?;
+    session.send_input(&data).await
 }
 
 #[tauri::command]
 pub async fn ssh_resize(
-    _manager: State<'_, SessionManager>,
-    _session_id: String,
-    _cols: u32,
-    _rows: u32,
+    manager: State<'_, SessionManager>,
+    session_id: String,
+    cols: u32,
+    rows: u32,
 ) -> AppResult<()> {
-    Err(crate::error::AppError::Other("not yet implemented".into()))
+    let session = manager.get(&session_id)?;
+    session.resize(cols, rows).await
 }
 
 #[tauri::command]
 pub async fn ssh_disconnect(
-    _manager: State<'_, SessionManager>,
-    _session_id: String,
+    manager: State<'_, SessionManager>,
+    session_id: String,
 ) -> AppResult<()> {
-    Err(crate::error::AppError::Other("not yet implemented".into()))
+    let session = manager.remove(&session_id)?;
+    session.close().await
 }

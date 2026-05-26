@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Button, Modal, Stack, Text } from '@mantine/core';
+import { Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { AppShell } from './modules/shell/AppShell';
+import { ConnectionView } from './modules/shell/ConnectionView';
 import { ProfileForm } from './modules/profiles/ProfileForm';
 import { ProfileList } from './modules/profiles/ProfileList';
 import { useProfiles } from './modules/profiles/useProfiles';
@@ -41,24 +42,22 @@ function App() {
       }
     >
       {selected ? (
-        <Stack>
-          <Text fw={600} size="xl">
-            {selected.name}
-          </Text>
-          <Text c="dimmed">{`${selected.username}@${selected.host}:${selected.port}`}</Text>
-          <Button
-            onClick={() => {
-              setEditingId(selected.id);
-              setEditorOpen(true);
-            }}
-            variant="default"
-            w="fit-content"
-          >
-            Edit
-          </Button>
-          <Text c="dimmed" mt="lg">
-            (Connect button will land in Phase F.)
-          </Text>
+        <Stack gap="sm" style={{ height: '100%', flex: 1 }}>
+          <Group justify="flex-end">
+            <Button
+              onClick={() => {
+                setEditingId(selected.id);
+                setEditorOpen(true);
+              }}
+              variant="subtle"
+              size="xs"
+            >
+              Edit profile
+            </Button>
+          </Group>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <ConnectionView key={selected.id} profile={selected} />
+          </div>
         </Stack>
       ) : (
         <Text c="dimmed">Select a profile, or create one with the + button.</Text>

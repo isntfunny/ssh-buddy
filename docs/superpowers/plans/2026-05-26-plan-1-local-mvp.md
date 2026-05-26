@@ -1545,7 +1545,7 @@ git commit -m "feat(ssh): session manager with tests"
 - Create: `src-tauri/src/ssh/session.rs`
 - Modify: `src-tauri/src/ssh/manager.rs`
 
-- [ ] **Step 1: Replace stub `Session` with real one**
+- [x] **Step 1: Replace stub `Session` with real one**
 
 Create `src-tauri/src/ssh/session.rs`:
 
@@ -1698,7 +1698,7 @@ impl Session {
 }
 ```
 
-- [ ] **Step 2: Update `manager.rs` to use the real `Session`**
+- [x] **Step 2: Update `manager.rs` to use the real `Session`**
 
 Replace the stub `Session` import. Open `src-tauri/src/ssh/manager.rs` and change the top:
 
@@ -1723,7 +1723,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 3: Verify it compiles**
+- [x] **Step 3: Verify it compiles**
 
 ```bash
 cd src-tauri && cargo check && cd ..
@@ -1745,7 +1745,7 @@ git commit -m "feat(ssh): russh-based Session with PTY shell and output pump"
 **Files:**
 - Create: `src-tauri/src/commands/ssh.rs`
 
-- [ ] **Step 1: Implement commands**
+- [x] **Step 1: Implement commands**
 
 Create `src-tauri/src/commands/ssh.rs`:
 
@@ -1858,7 +1858,7 @@ pub async fn ssh_disconnect(
 }
 ```
 
-- [ ] **Step 2: Verify it builds**
+- [x] **Step 2: Verify it builds**
 
 ```bash
 cd src-tauri && cargo build && cd ..
@@ -1882,7 +1882,7 @@ git commit -m "feat(ssh): tauri commands connect/send/resize/disconnect"
 - Create: `src-tauri/tests/README.md`
 - Create: `docker-compose.test.yml` (at repo root)
 
-- [ ] **Step 1: Add docker-compose fixture**
+- [x] **Step 1: Add docker-compose fixture**
 
 Create `docker-compose.test.yml` at the repo root:
 
@@ -1901,7 +1901,7 @@ services:
     restart: unless-stopped
 ```
 
-- [ ] **Step 2: Document the fixture**
+- [x] **Step 2: Document the fixture**
 
 Create `src-tauri/tests/README.md`:
 
@@ -1927,7 +1927,7 @@ Config picked up from these env vars (with defaults):
 | SSH_BUDDY_TEST_PASSWORD   | testpass    |
 ```
 
-- [ ] **Step 3: Write the integration test**
+- [x] **Step 3: Write the integration test**
 
 Create `src-tauri/tests/integration_ssh.rs`:
 
@@ -1994,7 +1994,7 @@ async fn connect_and_run_command() {
 }
 ```
 
-- [ ] **Step 4: Rename the library so the integration test can import it**
+- [x] **Step 4: Rename the library so the integration test can import it**
 
 The integration test imports `ssh_buddy_lib`. By default, Tauri generates the package as the project name. Edit `src-tauri/Cargo.toml` to make the library name explicit. Find the `[lib]` section (or add it):
 
@@ -2006,7 +2006,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 (Keep the existing `crate-type` if different — the `name` field is what matters.)
 
-- [ ] **Step 5: Run the test SKIPPED to verify it compiles**
+- [x] **Step 5: Run the test SKIPPED to verify it compiles**
 
 ```bash
 cd src-tauri && cargo test --test integration_ssh && cd ..
@@ -2014,7 +2014,7 @@ cd src-tauri && cargo test --test integration_ssh && cd ..
 
 Expected: 1 test, passes immediately with "SKIPPED" message.
 
-- [ ] **Step 6: Run the test with docker for real**
+- [x] **Step 6: Run the test with docker for real**
 
 ```bash
 docker compose -f docker-compose.test.yml up -d
@@ -2042,7 +2042,7 @@ git commit -m "test(ssh): integration test against linuxserver/openssh-server"
 - Create: `src/modules/ssh/types.ts`
 - Create: `src/modules/ssh/client.ts`
 
-- [ ] **Step 1: Create types**
+- [x] **Step 1: Create types**
 
 `src/modules/ssh/types.ts`:
 
@@ -2064,7 +2064,7 @@ export type OutputEvent = {
 };
 ```
 
-- [ ] **Step 2: Create client**
+- [x] **Step 2: Create client**
 
 `src/modules/ssh/client.ts`:
 
@@ -2120,13 +2120,13 @@ git commit -m "feat(ssh): frontend command wrappers"
 **Files:**
 - Create: `src/modules/terminal/Terminal.tsx`
 
-- [ ] **Step 1: Install xterm.js**
+- [x] **Step 1: Install xterm.js**
 
 ```bash
 pnpm add @xterm/xterm @xterm/addon-fit @xterm/addon-web-links
 ```
 
-- [ ] **Step 2: Implement component**
+- [x] **Step 2: Implement component**
 
 Create `src/modules/terminal/Terminal.tsx`:
 
@@ -2219,7 +2219,7 @@ git commit -m "feat(terminal): xterm.js wrapper component"
 - Create: `src/modules/ssh/useSshSession.ts`
 - Create: `src/modules/shell/ConnectionView.tsx`
 
-- [ ] **Step 1: Hook**
+- [x] **Step 1: Hook**
 
 Create `src/modules/ssh/useSshSession.ts`:
 
@@ -2311,7 +2311,7 @@ export function useSshSession(profile: Profile | null) {
 }
 ```
 
-- [ ] **Step 2: View**
+- [x] **Step 2: View**
 
 Create `src/modules/shell/ConnectionView.tsx`:
 
@@ -2401,7 +2401,7 @@ git commit -m "feat(ssh): connection view glueing terminal to SSH session"
 **Files:**
 - Modify: `src/App.tsx`
 
-- [ ] **Step 1: Edit `App.tsx`**
+- [x] **Step 1: Edit `App.tsx`**
 
 Find the block:
 
@@ -2509,7 +2509,7 @@ git commit -m "feat: wire ConnectionView into the main app — Plan 1 MVP works 
 - Modify: `src/App.tsx`
 - Modify: `src/modules/ssh/useSshSession.ts`
 
-- [ ] **Step 1: ErrorBoundary**
+- [x] **Step 1: ErrorBoundary**
 
 Create `src/modules/shell/ErrorBoundary.tsx`:
 
@@ -2546,7 +2546,7 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 ```
 
-- [ ] **Step 2: Wrap App in ErrorBoundary**
+- [x] **Step 2: Wrap App in ErrorBoundary**
 
 In `src/main.tsx`, wrap `<App />` with `<ErrorBoundary>`. Add the import and update render block:
 
@@ -2561,7 +2561,7 @@ import { ErrorBoundary } from './modules/shell/ErrorBoundary';
 </MantineProvider>
 ```
 
-- [ ] **Step 3: Friendlier auth-failure text in `useSshSession.ts`**
+- [x] **Step 3: Friendlier auth-failure text in `useSshSession.ts`**
 
 In the `catch (e)` block of `connect`, change:
 ```ts
@@ -2593,7 +2593,7 @@ git commit -m "feat(ui): error boundary and friendlier SSH error messages"
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Add a "Run locally" section**
+- [x] **Step 1: Add a "Run locally" section**
 
 Append to `README.md` before the License section:
 
@@ -2634,7 +2634,7 @@ git commit -m "docs: add Plan 1 quickstart to README"
 **Files:**
 - Modify: `docs/superpowers/plans/2026-05-26-plan-1-local-mvp.md` (append a Done section)
 
-- [ ] **Step 1: Re-run all tests**
+- [x] **Step 1: Re-run all tests**
 
 ```bash
 pnpm test:run
@@ -2661,7 +2661,7 @@ Verify:
 docker compose -f docker-compose.test.yml down
 ```
 
-- [ ] **Step 3: Mark plan done**
+- [x] **Step 3: Mark plan done**
 
 Get today's date and append a Status block at the bottom of this plan file:
 
@@ -2688,11 +2688,11 @@ git commit -m "docs: mark Plan 1 done"
 
 ## Self-review checklist (run before declaring Plan 1 complete)
 
-- [ ] All Vitest tests pass (`pnpm test:run`).
-- [ ] All cargo unit tests pass (`cd src-tauri && cargo test --lib`).
-- [ ] Integration test passes with docker fixture (`SSH_BUDDY_INTEGRATION=1 cargo test --test integration_ssh`).
+- [x] All Vitest tests pass (`pnpm test:run`).
+- [x] All cargo unit tests pass (`cd src-tauri && cargo test --lib`).
+- [x] Integration test passes with docker fixture (`SSH_BUDDY_INTEGRATION=1 cargo test --test integration_ssh`).
 - [ ] Manual flow works: create → connect → run commands → disconnect.
-- [ ] No `TODO`, `FIXME`, `unimplemented!()` in committed code.
+- [x] No `TODO`, `FIXME`, `unimplemented!()` in committed code.
 - [ ] App-data directory contains a readable `profiles.json` after creating a profile.
 
 ## What is explicitly NOT in this plan (deferred)
@@ -2705,3 +2705,9 @@ git commit -m "docs: mark Plan 1 done"
 - SFTP file browser, port forwarding UI, snippets, agent forwarding → Plan 5.
 - `known_hosts` / Trust-On-First-Use UI → Plan 5 (currently auto-trusting all server keys in MVP).
 - Multi-tab / split-pane terminal → Plan 5.
+
+---
+
+## Status
+
+Implementation code complete on 2026-05-26. Automated verification passes. Native UI manual smoke is still pending because `pnpm tauri dev` cannot initialize GTK in the current headless environment.

@@ -63,7 +63,7 @@ Until scaffolding is done, only `docs/` and the root config files exist.
 
 1. **The server never sees decrypted profile data.** All encryption/decryption happens client-side. The master password never leaves the device.
 2. **Native SSH connections go device → target server directly.** No proxy.
-3. **Web SSH connections go browser → our WebSocket proxy → target.** Proxy is a dumb TCP forwarder. Document clearly to users that this proxy can observe credentials at handshake time.
+3. **Web SSH connections go browser → our WebSocket proxy → target.** In the MVP, the proxy speaks SSH on behalf of the browser. Document clearly to users that this proxy can observe credentials at handshake time. A later stretch path may move SSH into the browser and downgrade the proxy to a dumb TCP forwarder.
 4. **The WebSocket proxy MUST NOT log payloads.** It logs only connection metadata (timestamps, byte counts, target hostname).
 5. **Crypto choices are fixed and live in the spec.** Don't introduce new crypto primitives without updating the spec.
 

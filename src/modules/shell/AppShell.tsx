@@ -23,7 +23,11 @@ export function AppShell({ navbar, children }: Props) {
         </Group>
       </MantineAppShell.Header>
       <MantineAppShell.Navbar p="md">{navbar}</MantineAppShell.Navbar>
-      <MantineAppShell.Main>{children}</MantineAppShell.Main>
+      <MantineAppShell.Main
+        style={{ height: 'calc(100vh - 56px)', display: 'flex', flexDirection: 'column' }}
+      >
+        {children}
+      </MantineAppShell.Main>
     </MantineAppShell>
   );
 }

@@ -41,3 +41,6 @@ coverage/
 # Misc local
 *.log
 .cache/
+.playwright-mcp/
+ssh-buddy-error.png
+backend/ws-ssh-proxy/ws-ssh-proxy

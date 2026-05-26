@@ -1,3 +1,4 @@
+import { isTauri } from '@tauri-apps/api/core';
 import { newId } from '../../lib/id';
 import type { NewProfileInput, Profile, ProfileStoreFile } from './types';
 import { SCHEMA_VERSION } from './types';
@@ -51,6 +52,7 @@ export function createInMemoryStorage(): ProfileStorage {
 }
 
 const FILE_NAME = 'profiles.json';
+const BROWSER_STORAGE_KEY = 'ssh-buddy.profiles';
 
 async function readFile(): Promise<ProfileStoreFile | null> {
   const { exists, readTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
@@ -103,4 +105,55 @@ export function createFileStorage(): ProfileStorage {
       await writeFile(data);
     },
   };
+}
+
+function readBrowserFile(): ProfileStoreFile {
+  const raw = localStorage.getItem(BROWSER_STORAGE_KEY);
+  if (!raw) return { schemaVersion: SCHEMA_VERSION, profiles: [] };
+
+  const parsed = JSON.parse(raw) as ProfileStoreFile;
+  if (parsed.schemaVersion !== SCHEMA_VERSION) {
+    throw new Error(`Unsupported profile schema version: ${parsed.schemaVersion}`);
+  }
+  return parsed;
+}
+
+function writeBrowserFile(data: ProfileStoreFile): void {
+  localStorage.setItem(BROWSER_STORAGE_KEY, JSON.stringify(data));
+}
+
+export function createBrowserStorage(): ProfileStorage {
+  return {
+    async list() {
+      return readBrowserFile().profiles;
+    },
+    async create(input) {
+      const data = readBrowserFile();
+      const ts = nowIso();
+      const profile: Profile = { id: newId(), createdAt: ts, updatedAt: ts, ...input };
+      data.profiles = [...data.profiles, profile];
+      writeBrowserFile(data);
+      return profile;
+    },
+    async update(id, patch) {
+      const data = readBrowserFile();
+      const idx = data.profiles.findIndex((p) => p.id === id);
+      if (idx === -1) throw new Error(`Profile not found: ${id}`);
+      const updated: Profile = { ...data.profiles[idx], ...patch, updatedAt: nowIso() };
+      data.profiles = data.profiles.map((p, i) => (i === idx ? updated : p));
+      writeBrowserFile(data);
+      return updated;
+    },
+    async remove(id) {
+      const data = readBrowserFile();
+      const before = data.profiles.length;
+      data.profiles = data.profiles.filter((p) => p.id !== id);
+      if (data.profiles.length === before) throw new Error(`Profile not found: ${id}`);
+      writeBrowserFile(data);
+    },
+  };
+}
+
+export function createProfileStorage(): ProfileStorage {
+  return isTauri() ? createFileStorage() : createBrowserStorage();
 }
