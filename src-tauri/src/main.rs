@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    scaffold_tmp_lib::run()
+    ssh_buddy_lib::run()
 }
