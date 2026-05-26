@@ -8,6 +8,7 @@ export type TerminalHandle = {
   write: (bytes: Uint8Array | string) => void;
   fit: () => { cols: number; rows: number };
   focus: () => void;
+  clear: () => void;
 };
 
 type Props = {
@@ -64,6 +65,7 @@ export const Terminal = forwardRef<TerminalHandle, Props>(({ onData, onResize },
         return { cols: xtermRef.current?.cols ?? 80, rows: xtermRef.current?.rows ?? 24 };
       },
       focus: () => xtermRef.current?.focus(),
+      clear: () => xtermRef.current?.clear(),
     }),
     [],
   );

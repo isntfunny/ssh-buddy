@@ -1,6 +1,6 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { command, subscribe } from '../../lib/tauri';
-import type { ConnectRequest, OutputEvent } from './types';
+import type { ConnectOutcome, ConnectRequest, OutputEvent } from './types';
 
 type WebSession = {
   socket: WebSocket;
@@ -10,9 +10,9 @@ type WebSession = {
 
 const webSessions = new Map<string, WebSession>();
 
-export async function sshConnect(req: ConnectRequest): Promise<string> {
+export async function sshConnect(req: ConnectRequest): Promise<ConnectOutcome> {
   if (!isTauri()) return webSshConnect(req);
-  return command<string>('ssh_connect', { request: req });
+  return command<ConnectOutcome>('ssh_connect', { request: req });
 }
 
 export async function sshSendInput(sessionId: string, data: Uint8Array): Promise<void> {
@@ -78,7 +78,7 @@ function requireWebSession(sessionId: string): WebSession {
   return session;
 }
 
-function webSshConnect(req: ConnectRequest): Promise<string> {
+function webSshConnect(req: ConnectRequest): Promise<ConnectOutcome> {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(proxyUrl());
     socket.binaryType = 'arraybuffer';
@@ -110,7 +110,7 @@ function webSshConnect(req: ConnectRequest): Promise<string> {
             outputHandlers: new Set(),
             closedHandlers: new Set(),
           });
-          resolve(sessionId);
+          resolve({ type: 'connected', sessionId, fingerprint: 'proxy-verified' });
           return;
         }
 
@@ -152,4 +152,26 @@ function proxyUrl(): string {
   if (configured) return configured;
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${protocol}//${window.location.hostname}:8080/ssh`;
+}
+
+export async function sshTrustHostKey(
+  host: string,
+  port: number,
+  fingerprint: string,
+): Promise<void> {
+  if (!isTauri()) return; // Browser: no-op — proxy handles host key verification
+  return command('ssh_trust_host_key', { host, port, fingerprint });
+}
+
+export async function sshRejectHostKey(sessionId: string): Promise<void> {
+  if (!isTauri()) {
+    const session = webSessions.get(sessionId);
+    if (session) {
+      session.socket.send(JSON.stringify({ type: 'disconnect' }));
+      session.socket.close();
+      webSessions.delete(sessionId);
+    }
+    return;
+  }
+  return command('ssh_reject_host_key', { sessionId });
 }

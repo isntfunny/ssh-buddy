@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Profile } from '../profiles/types';
+import type { TofuState } from './types';
 import {
   sshConnect,
   sshDisconnect,
@@ -7,6 +8,8 @@ import {
   sshSendInput,
   sshSubscribeClosed,
   sshSubscribeOutput,
+  sshTrustHostKey,
+  sshRejectHostKey,
 } from './client';
 
 export type SshState = 'idle' | 'connecting' | 'connected' | 'closed' | 'error';
@@ -22,20 +25,24 @@ function friendlyError(error: unknown): string {
   if (msg.includes('Web SSH proxy is unreachable')) {
     return 'Web SSH proxy is unreachable - start backend/ws-ssh-proxy on port 8080 or set VITE_SSH_BUDDY_WS_PROXY_URL.';
   }
+  if (msg.includes('Host key changed')) {
+    return msg;
+  }
   return msg;
 }
 
 export function useSshSession(profile: Profile | null) {
   const [state, setState] = useState<SshState>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [tofu, setTofu] = useState<TofuState | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const outputHandlerRef = useRef<((data: Uint8Array) => void) | null>(null);
   const unlistenRef = useRef<(() => void)[]>([]);
+  const onConnectedRef = useRef<((fingerprint: string) => void) | null>(null);
+  const onErrorRef = useRef<((category: string) => void) | null>(null);
 
   const cleanupListeners = useCallback(() => {
-    for (const unlisten of unlistenRef.current) {
-      unlisten();
-    }
+    for (const unlisten of unlistenRef.current) unlisten();
     unlistenRef.current = [];
   }, []);
 
@@ -44,8 +51,9 @@ export function useSshSession(profile: Profile | null) {
       if (!profile || sessionIdRef.current) return;
       setState('connecting');
       setError(null);
+      setTofu(null);
       try {
-        const id = await sshConnect({
+        const outcome = await sshConnect({
           host: profile.host,
           port: profile.port,
           username: profile.username,
@@ -53,23 +61,51 @@ export function useSshSession(profile: Profile | null) {
           initialCols: cols,
           initialRows: rows,
         });
-        sessionIdRef.current = id;
 
-        const unlistenData = await sshSubscribeOutput(id, (data) => {
+        const { sessionId, fingerprint } = outcome;
+        sessionIdRef.current = sessionId;
+
+        const unlistenData = await sshSubscribeOutput(sessionId, (data) => {
           outputHandlerRef.current?.(data);
         });
-        const unlistenClosed = await sshSubscribeClosed(id, () => {
+        const unlistenClosed = await sshSubscribeClosed(sessionId, () => {
           setState('closed');
+          setTofu(null);
           cleanupListeners();
           sessionIdRef.current = null;
         });
         unlistenRef.current = [unlistenData, unlistenClosed];
-        setState('connected');
+
+        if (outcome.type === 'newHostKey') {
+          setTofu({
+            fingerprint,
+            host: profile.host,
+            port: profile.port,
+            trust: async () => {
+              await sshTrustHostKey(profile.host, profile.port, fingerprint);
+              setTofu(null);
+              onConnectedRef.current?.(fingerprint);
+            },
+            reject: async () => {
+              cleanupListeners();
+              sessionIdRef.current = null;
+              await sshRejectHostKey(sessionId);
+              setState('idle');
+              setTofu(null);
+            },
+          });
+          setState('connected');
+        } else {
+          setState('connected');
+          onConnectedRef.current?.(fingerprint);
+        }
       } catch (e) {
-        setError(friendlyError(e));
+        const msg = friendlyError(e);
+        setError(msg);
         setState('error');
         sessionIdRef.current = null;
         cleanupListeners();
+        onErrorRef.current?.(categorizeSshError(String(e)));
       }
     },
     [cleanupListeners, profile],
@@ -90,6 +126,7 @@ export function useSshSession(profile: Profile | null) {
     if (!sessionId) return;
     sessionIdRef.current = null;
     cleanupListeners();
+    setTofu(null);
     await sshDisconnect(sessionId);
     setState('closed');
   }, [cleanupListeners]);
@@ -98,15 +135,40 @@ export function useSshSession(profile: Profile | null) {
     outputHandlerRef.current = handler;
   }, []);
 
+  const setOnConnected = useCallback((cb: (fingerprint: string) => void) => {
+    onConnectedRef.current = cb;
+  }, []);
+
+  const setOnError = useCallback((cb: (category: string) => void) => {
+    onErrorRef.current = cb;
+  }, []);
+
   useEffect(() => {
     return () => {
       cleanupListeners();
       const sessionId = sessionIdRef.current;
-      if (sessionId) {
-        sshDisconnect(sessionId).catch(() => {});
-      }
+      if (sessionId) sshDisconnect(sessionId).catch(() => {});
     };
   }, [cleanupListeners]);
 
-  return { state, error, connect, send, resize, disconnect, setOutputHandler };
+  return {
+    state,
+    error,
+    tofu,
+    connect,
+    send,
+    resize,
+    disconnect,
+    setOutputHandler,
+    setOnConnected,
+    setOnError,
+  };
+}
+
+function categorizeSshError(msg: string): string {
+  if (msg.includes('Authentication failed')) return 'auth_failed';
+  if (msg.toLowerCase().includes('connection refused')) return 'connection_refused';
+  if (msg.includes('Host key changed')) return 'host_key_changed';
+  if (msg.includes('proxy is unreachable')) return 'proxy_unreachable';
+  return 'other';
 }
