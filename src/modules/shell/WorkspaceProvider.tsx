@@ -28,58 +28,68 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [panes, setPanes] = useState<Record<string, PaneData>>({});
   const [mosaicTree, setMosaicTree] = useState<MosaicNode<string> | null>(null);
 
-  const addSession = useCallback((profileId: string) => {
-    const sessionId = uuidv4();
-    const newSession = { id: sessionId, profileId };
+  // Side effects (id generation, setMosaicTree) are kept OUT of the setState
+  // updater: StrictMode invokes updaters twice, which would mint two different
+  // pane ids and leave mosaicTree pointing at a pane that isn't in `panes`.
+  const addSession = useCallback(
+    (profileId: string) => {
+      const sessionId = uuidv4();
+      const newSession: WorkspaceSession = { id: sessionId, profileId };
+      const paneIds = Object.keys(panes);
 
-    setPanes((prev) => {
-      const paneIds = Object.keys(prev);
       if (paneIds.length === 0) {
         const paneId = uuidv4();
+        setPanes({ [paneId]: { id: paneId, sessions: [newSession], activeSessionId: sessionId } });
         setMosaicTree(paneId);
-        return { [paneId]: { id: paneId, sessions: [newSession], activeSessionId: sessionId } };
+        return;
       }
 
       // Default: add to the first pane
       const paneId = paneIds[0];
-      return {
+      setPanes((prev) => ({
         ...prev,
         [paneId]: {
           ...prev[paneId],
           sessions: [...prev[paneId].sessions, newSession],
           activeSessionId: sessionId,
         },
-      };
-    });
-  }, []);
+      }));
+    },
+    [panes],
+  );
 
-  const removeSession = useCallback((paneId: string, sessionId: string) => {
-    setPanes((prev) => {
-      const pane = prev[paneId];
-      if (!pane) return prev;
+  const removeSession = useCallback(
+    (paneId: string, sessionId: string) => {
+      const pane = panes[paneId];
+      if (!pane) return;
       const newSessions = pane.sessions.filter((s) => s.id !== sessionId);
 
       if (newSessions.length === 0) {
-        const newPanes = { ...prev };
-        delete newPanes[paneId];
-        // Note: Real react-mosaic tree cleanup requires mosaicActions.remove.
-        // For this simple robust setup, if no panes remain, clear the tree entirely.
-        if (Object.keys(newPanes).length === 0) {
+        setPanes((prev) => {
+          const next = { ...prev };
+          delete next[paneId];
+          return next;
+        });
+        // Note: Real react-mosaic tree cleanup for split layouts requires
+        // mosaicActions.remove. When the last pane is removed, clear the tree.
+        if (Object.keys(panes).length <= 1) {
           setMosaicTree(null);
         }
-        return newPanes;
+        return;
       }
 
-      const activeSessionId = pane.activeSessionId === sessionId
-        ? newSessions[newSessions.length - 1].id
-        : pane.activeSessionId;
+      const activeSessionId =
+        pane.activeSessionId === sessionId
+          ? newSessions[newSessions.length - 1].id
+          : pane.activeSessionId;
 
-      return {
+      setPanes((prev) => ({
         ...prev,
         [paneId]: { ...pane, sessions: newSessions, activeSessionId },
-      };
-    });
-  }, []);
+      }));
+    },
+    [panes],
+  );
 
   const setActiveSession = useCallback((paneId: string, sessionId: string) => {
     setPanes((prev) => {

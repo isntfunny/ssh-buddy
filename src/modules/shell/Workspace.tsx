@@ -1,4 +1,4 @@
-import { Mosaic, MosaicWindow } from 'react-mosaic-component';
+import { Mosaic } from 'react-mosaic-component';
 import 'react-mosaic-component/react-mosaic-component.css';
 import { useWorkspace } from './WorkspaceProvider';
 import { WorkspacePane } from './WorkspacePane';
@@ -29,10 +29,8 @@ export function Workspace({ profiles, onUpdateHistory }: Props) {
 
   return (
     <Mosaic<string>
-      renderTile={(id, path) => (
-        <MosaicWindow<string> path={path} title="" createNode={() => 'new'} renderToolbar={null}>
-          <WorkspacePane paneId={id} profiles={profiles} onUpdateHistory={onUpdateHistory} />
-        </MosaicWindow>
+      renderTile={(id) => (
+        <WorkspacePane paneId={id} profiles={profiles} onUpdateHistory={onUpdateHistory} />
       )}
       value={mosaicTree}
       onChange={setMosaicTree}
