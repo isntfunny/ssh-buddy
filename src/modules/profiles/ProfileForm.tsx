@@ -1,6 +1,7 @@
 import { useForm } from '@mantine/form';
 import {
   Button,
+  ColorInput,
   Group,
   NumberInput,
   PasswordInput,
@@ -31,6 +32,7 @@ type FormValues = {
   pem: string;
   passphrase: string;
   notes: string;
+  color: string;
 };
 
 function buildAuth(v: FormValues): AuthMethod {
@@ -50,6 +52,7 @@ function fromProfile(p?: Profile): FormValues {
     pem: p?.auth.kind === 'privateKey' ? p.auth.pem : '',
     passphrase: p?.auth.kind === 'privateKey' ? p.auth.passphrase ?? '' : '',
     notes: p?.notes ?? '',
+    color: p?.color ?? '',
   };
 }
 
@@ -102,6 +105,7 @@ export function ProfileForm({ initial, onSubmit, onCancel }: Props) {
           username: values.username.trim(),
           auth: buildAuth(values),
           notes: values.notes.trim() || undefined,
+          color: values.color || undefined,
         });
       })}
     >
@@ -147,6 +151,12 @@ export function ProfileForm({ initial, onSubmit, onCancel }: Props) {
             )}
           </>
         )}
+        <ColorInput
+          label="Profile color"
+          description="Used for tab borders and the sidebar indicator"
+          format="hex"
+          {...form.getInputProps('color')}
+        />
         <Textarea label="Notes (optional)" autosize {...form.getInputProps('notes')} />
         <Group justify="flex-end" mt="md">
           <Button variant="default" onClick={onCancel}>
