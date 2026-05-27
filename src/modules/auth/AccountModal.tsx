@@ -7,13 +7,24 @@ type Props = {
   user: PbUser;
   syncStatus: 'idle' | 'syncing' | 'error';
   lastSyncedAt: Date | null;
+  biometricAvailable: boolean;
+  onRememberDevice: () => Promise<void>;
   onSignOut: () => Promise<void>;
   onExport: () => void;
   onImport: () => void;
 };
 
 export function AccountModal({
-  opened, onClose, user, syncStatus, lastSyncedAt, onSignOut, onExport, onImport,
+  opened,
+  onClose,
+  user,
+  syncStatus,
+  lastSyncedAt,
+  biometricAvailable,
+  onRememberDevice,
+  onSignOut,
+  onExport,
+  onImport,
 }: Props) {
   const statusLabel =
     syncStatus === 'syncing' ? 'Wird synchronisiert…'
@@ -27,6 +38,11 @@ export function AccountModal({
         <Text size="sm">{user.email}</Text>
         <Text size="xs" c={syncStatus === 'error' ? 'red' : 'dimmed'}>{statusLabel}</Text>
         <Divider label="Mehr" labelPosition="center" my="xs" />
+        {biometricAvailable && (
+          <Button variant="subtle" size="xs" onClick={onRememberDevice}>
+            Dieses Gerät merken
+          </Button>
+        )}
         <Button variant="subtle" size="xs" onClick={onExport}>Profile exportieren</Button>
         <Button variant="subtle" size="xs" onClick={onImport}>Profile importieren</Button>
         <Divider my="xs" />

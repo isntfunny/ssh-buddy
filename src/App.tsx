@@ -77,6 +77,16 @@ function App() {
     else if (state === 'unlocked') setAccountOpen(true);
   };
 
+  const handleRememberDevice = async () => {
+    try {
+      await rememberKey(true);
+      notifications.show({ message: 'Gerät wurde gemerkt' });
+      setBiometricPromptOpen(false);
+    } catch (e) {
+      notifications.show({ message: `Speichern fehlgeschlagen: ${String(e)}`, color: 'red' });
+    }
+  };
+
   const footer = (
     <>
       {state === 'not-configured' && (
@@ -135,15 +145,7 @@ function App() {
               Später
             </Button>
             <Button
-              onClick={async () => {
-                try {
-                  await rememberKey(true);
-                  notifications.show({ message: 'Gerät wurde gemerkt' });
-                  setBiometricPromptOpen(false);
-                } catch (e) {
-                  notifications.show({ message: `Speichern fehlgeschlagen: ${String(e)}`, color: 'red' });
-                }
-              }}
+              onClick={handleRememberDevice}
             >
               Ja, merken
             </Button>
@@ -158,6 +160,8 @@ function App() {
           user={user}
           syncStatus={syncStatus}
           lastSyncedAt={lastSyncedAt}
+          biometricAvailable={state === 'unlocked' && biometricAvailable}
+          onRememberDevice={handleRememberDevice}
           onSignOut={async () => {
             await signOut();
             setAccountOpen(false);
