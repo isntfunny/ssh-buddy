@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { initCrypto, deriveKey, encryptBlob, decryptBlob, generateSalt, generateNonce } from './index';
+import { initCrypto, deriveKey, encryptBlob, decryptBlob, generateSalt } from './index';
 
 beforeAll(async () => {
   await initCrypto();
