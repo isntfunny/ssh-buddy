@@ -18,8 +18,10 @@ pub fn run() {
             Ok(())
         })
         .manage(ssh::manager::SessionManager::new())
+        .manage(commands::ssh::PendingPumps::default())
         .invoke_handler(tauri::generate_handler![
             commands::ssh::ssh_connect,
+            commands::ssh::ssh_start_output,
             commands::ssh::ssh_send_input,
             commands::ssh::ssh_resize,
             commands::ssh::ssh_disconnect,

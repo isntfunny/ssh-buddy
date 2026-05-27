@@ -1,11 +1,18 @@
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
 use crate::ssh::known_hosts::{HostKeyStatus, KnownHostsStore};
 use crate::ssh::manager::SessionManager;
 use crate::ssh::session::{AuthMethod, ConnectParams, Session};
+
+/// Holds output receivers for sessions whose pump hasn't started yet.
+/// The pump is started only after the frontend confirms its listener is registered,
+/// preventing a race where events are emitted before the JS listener exists.
+pub type PendingPumps = Mutex<HashMap<String, tokio::sync::mpsc::Receiver<Vec<u8>>>>;
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -83,8 +90,8 @@ fn start_output_pump(
 
 #[tauri::command]
 pub async fn ssh_connect(
-    app: AppHandle,
     manager: State<'_, SessionManager>,
+    pending: State<'_, PendingPumps>,
     known_hosts: State<'_, KnownHostsStore>,
     request: ConnectRequest,
 ) -> AppResult<ConnectOutcome> {
@@ -108,22 +115,39 @@ pub async fn ssh_connect(
             )))
         }
         HostKeyStatus::Trusted => {
+            pending.lock().await.insert(id.clone(), outcome.output_rx);
             manager.insert(outcome.session);
-            start_output_pump(app, id.clone(), outcome.output_rx);
             Ok(ConnectOutcome::Connected {
                 session_id: id,
                 fingerprint,
             })
         }
         HostKeyStatus::New => {
+            pending.lock().await.insert(id.clone(), outcome.output_rx);
             manager.insert(outcome.session);
-            start_output_pump(app, id.clone(), outcome.output_rx);
             Ok(ConnectOutcome::NewHostKey {
                 session_id: id,
                 fingerprint,
             })
         }
     }
+}
+
+/// Called by the frontend after its event listener is registered. Starts the
+/// output pump so no events are emitted before the listener exists.
+#[tauri::command]
+pub async fn ssh_start_output(
+    app: AppHandle,
+    pending: State<'_, PendingPumps>,
+    session_id: String,
+) -> AppResult<()> {
+    let rx = pending
+        .lock()
+        .await
+        .remove(&session_id)
+        .ok_or_else(|| AppError::Other(format!("No pending output for session {session_id}")))?;
+    start_output_pump(app, session_id, rx);
+    Ok(())
 }
 
 #[tauri::command]
@@ -139,8 +163,10 @@ pub async fn ssh_trust_host_key(
 #[tauri::command]
 pub async fn ssh_reject_host_key(
     manager: State<'_, SessionManager>,
+    pending: State<'_, PendingPumps>,
     session_id: String,
 ) -> AppResult<()> {
+    pending.lock().await.remove(&session_id);
     let session = manager.remove(&session_id)?;
     session.close().await
 }
@@ -169,8 +195,10 @@ pub async fn ssh_resize(
 #[tauri::command]
 pub async fn ssh_disconnect(
     manager: State<'_, SessionManager>,
+    pending: State<'_, PendingPumps>,
     session_id: String,
 ) -> AppResult<()> {
+    pending.lock().await.remove(&session_id);
     let session = manager.remove(&session_id)?;
     session.close().await
 }

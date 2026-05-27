@@ -154,6 +154,11 @@ function proxyUrl(): string {
   return `${protocol}//${window.location.hostname}:8080/ssh`;
 }
 
+export async function sshStartOutput(sessionId: string): Promise<void> {
+  if (!isTauri()) return; // web sessions: pump is wired via WebSocket onmessage already
+  return command('ssh_start_output', { sessionId });
+}
+
 export async function sshTrustHostKey(
   host: string,
   port: number,

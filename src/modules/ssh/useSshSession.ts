@@ -6,6 +6,7 @@ import {
   sshDisconnect,
   sshResize,
   sshSendInput,
+  sshStartOutput,
   sshSubscribeClosed,
   sshSubscribeOutput,
   sshTrustHostKey,
@@ -75,6 +76,9 @@ export function useSshSession(profile: Profile | null) {
           sessionIdRef.current = null;
         });
         unlistenRef.current = [unlistenData, unlistenClosed];
+        // Both listeners are registered — now it's safe to start the output pump.
+        // This prevents a race where Tauri events are emitted before listen() completes.
+        await sshStartOutput(sessionId);
 
         if (outcome.type === 'newHostKey') {
           setTofu({
