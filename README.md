@@ -43,7 +43,15 @@ Builds are available as GitHub Actions artifacts. A proper release page with aut
 
 ## Self-hosting the sync backend
 
-The sync backend is a standard [Pocketbase](https://pocketbase.io/) instance — a single binary you can run on any Linux server. Setup instructions will be added once the sync feature ships.
+The sync backend is a standard [PocketBase](https://pocketbase.io/) instance. The live Docker setup is in `docker-compose.live.yml`; it keeps PocketBase data in the `pb_data` volume and mounts versioned schema migrations from `backend/pocketbase/pb_migrations`.
+
+To apply the required sync schema on a running deployment, redeploy the PocketBase service:
+
+```bash
+docker compose -f docker-compose.live.yml up -d pocketbase
+```
+
+The app uses normal PocketBase user authentication. No API key or admin token is embedded in the client.
 
 ---
 
