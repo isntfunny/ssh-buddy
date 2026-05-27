@@ -7,8 +7,10 @@ import { ProfileForm } from './modules/profiles/ProfileForm';
 import { ProfileList } from './modules/profiles/ProfileList';
 import { useProfiles } from './modules/profiles/useProfiles';
 import { exportProfilesToJson, downloadJson, parseProfilesImport } from './modules/profiles/importExport';
+import { useUpdater } from './modules/updater/useUpdater';
 
 function App() {
+  useUpdater();
   const { profiles, loading, error, create, update, remove } = useProfiles();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);

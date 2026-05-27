@@ -78,3 +78,65 @@ When the spec and the code disagree, the spec is right and the code needs to be 
 ## When in doubt
 
 Ask the project owner. This project is at an early stage; conventions and stack are still flexible if there's a good reason to change.
+
+---
+
+## Releasing a new version
+
+### 1. Bump the version
+
+Two files must match exactly:
+
+```
+src-tauri/tauri.conf.json  →  "version": "X.Y.Z"
+src-tauri/Cargo.toml       →  version = "X.Y.Z"
+```
+
+```bash
+git add src-tauri/tauri.conf.json src-tauri/Cargo.toml
+git commit -m "chore: bump version to X.Y.Z"
+```
+
+### 2. Tag and push
+
+```bash
+git tag vX.Y.Z
+git push origin master
+git push origin vX.Y.Z
+```
+
+This triggers the **Release** workflow (`.github/workflows/release.yml`), which builds
+signed installers for Windows, macOS (Intel + Apple Silicon), and Linux, then creates
+a **draft** GitHub Release with all artifacts and a `latest.json` update manifest.
+
+### 3. Publish the release
+
+1. Open https://github.com/isntfunny/ssh-buddy/releases
+2. Find the new draft release
+3. Edit the release notes
+4. Click **Publish release**
+
+Existing installs detect the new version within 3 seconds of next app launch,
+download it silently in the background, and show a "Restart to apply" notification.
+
+---
+
+## Required GitHub Secrets (already set)
+
+| Secret | Description |
+|---|---|
+| `TAURI_SIGNING_PRIVATE_KEY` | Minisign private key — signs update artifacts |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password for the private key (empty string) |
+
+**Do not lose the private key.** If lost, existing installs cannot verify future
+updates and users must manually reinstall once.
+
+---
+
+## CI workflows
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| `build.yml` | `workflow_dispatch` | Test build (no signing, no release) |
+| `release.yml` | `push: tags: v*` or `workflow_dispatch` | Signed release + GitHub Release + `latest.json` |
+| `build-android.yml` | `push: tags: v*` or `workflow_dispatch` | Android debug APK |
