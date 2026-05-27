@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Profile } from '../profiles/types';
+import { friendlyError, categorizeSshError } from './errors';
 import type { TofuState } from './types';
 import {
   sshConnect,
@@ -15,22 +16,6 @@ import {
 
 export type SshState = 'idle' | 'connecting' | 'connected' | 'closed' | 'error';
 
-function friendlyError(error: unknown): string {
-  const msg = String(error);
-  if (msg.includes('Authentication failed')) {
-    return 'Authentication failed - check the username, password, or key.';
-  }
-  if (msg.toLowerCase().includes('connection refused')) {
-    return 'Connection refused - is the SSH server reachable on that host:port?';
-  }
-  if (msg.includes('Web SSH proxy is unreachable')) {
-    return 'Web SSH proxy is unreachable - start backend/ws-ssh-proxy on port 8080 or set VITE_SSH_BUDDY_WS_PROXY_URL.';
-  }
-  if (msg.includes('Host key changed')) {
-    return msg;
-  }
-  return msg;
-}
 
 export function useSshSession(profile: Profile | null) {
   const [state, setState] = useState<SshState>('idle');
@@ -169,10 +154,3 @@ export function useSshSession(profile: Profile | null) {
   };
 }
 
-function categorizeSshError(msg: string): string {
-  if (msg.includes('Authentication failed')) return 'auth_failed';
-  if (msg.toLowerCase().includes('connection refused')) return 'connection_refused';
-  if (msg.includes('Host key changed')) return 'host_key_changed';
-  if (msg.includes('proxy is unreachable')) return 'proxy_unreachable';
-  return 'other';
-}

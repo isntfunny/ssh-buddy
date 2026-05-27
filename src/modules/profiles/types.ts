@@ -15,6 +15,7 @@ export type Profile = {
   username: string;
   auth: AuthMethod;
   notes?: string;
+  color?: string;
   // Schema v1 extensions
   tags?: string[];
   snippets?: Snippet[];
