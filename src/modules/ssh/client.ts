@@ -21,7 +21,7 @@ export async function sshSendInput(sessionId: string, data: Uint8Array): Promise
     session.socket.send(data);
     return;
   }
-  return command('ssh_send_input', { sessionId, data: Array.from(data) });
+  return command('ssh_send_input', { session_id: sessionId, data: Array.from(data) });
 }
 
 export async function sshResize(sessionId: string, cols: number, rows: number): Promise<void> {
@@ -30,7 +30,7 @@ export async function sshResize(sessionId: string, cols: number, rows: number): 
     session.socket.send(JSON.stringify({ type: 'resize', cols, rows }));
     return;
   }
-  return command('ssh_resize', { sessionId, cols, rows });
+  return command('ssh_resize', { session_id: sessionId, cols, rows });
 }
 
 export async function sshDisconnect(sessionId: string): Promise<void> {
@@ -42,7 +42,7 @@ export async function sshDisconnect(sessionId: string): Promise<void> {
     webSessions.delete(sessionId);
     return;
   }
-  return command('ssh_disconnect', { sessionId });
+  return command('ssh_disconnect', { session_id: sessionId });
 }
 
 export async function sshSubscribeOutput(
@@ -156,7 +156,7 @@ function proxyUrl(): string {
 
 export async function sshStartOutput(sessionId: string): Promise<void> {
   if (!isTauri()) return; // web sessions: pump is wired via WebSocket onmessage already
-  return command('ssh_start_output', { sessionId });
+  return command('ssh_start_output', { session_id: sessionId });
 }
 
 export async function sshTrustHostKey(
@@ -178,5 +178,5 @@ export async function sshRejectHostKey(sessionId: string): Promise<void> {
     }
     return;
   }
-  return command('ssh_reject_host_key', { sessionId });
+  return command('ssh_reject_host_key', { session_id: sessionId });
 }

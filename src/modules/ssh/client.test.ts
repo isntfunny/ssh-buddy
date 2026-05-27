@@ -11,7 +11,7 @@ vi.mock('../../lib/tauri', () => ({
 
 import * as tauriCore from '@tauri-apps/api/core';
 import * as tauriLib from '../../lib/tauri';
-import { sshConnect } from './client';
+import { sshConnect, sshDisconnect, sshResize, sshSendInput, sshStartOutput } from './client';
 
 const mockReq = {
   host: 'localhost',
@@ -64,5 +64,22 @@ describe('sshConnect — transport selection', () => {
     // Trigger proxy error to clean up the dangling promise.
     mockWs.onerror?.(new Event('error'));
     await connectPromise.catch(() => {});
+  });
+});
+
+describe('native SSH command args', () => {
+  it('uses Rust snake_case parameter names for primitive command args', async () => {
+    vi.mocked(tauriCore.isTauri).mockReturnValue(true);
+    vi.mocked(tauriLib.command).mockResolvedValue(undefined);
+
+    await sshStartOutput('abc');
+    await sshSendInput('abc', new Uint8Array([1, 2]));
+    await sshResize('abc', 120, 40);
+    await sshDisconnect('abc');
+
+    expect(tauriLib.command).toHaveBeenCalledWith('ssh_start_output', { session_id: 'abc' });
+    expect(tauriLib.command).toHaveBeenCalledWith('ssh_send_input', { session_id: 'abc', data: [1, 2] });
+    expect(tauriLib.command).toHaveBeenCalledWith('ssh_resize', { session_id: 'abc', cols: 120, rows: 40 });
+    expect(tauriLib.command).toHaveBeenCalledWith('ssh_disconnect', { session_id: 'abc' });
   });
 });
