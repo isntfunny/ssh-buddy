@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,6 +32,7 @@ const (
 
 type proxyConfig struct {
 	listenAddr       string
+	webDir           string
 	writeTimeout     time.Duration
 	dialTimeout      time.Duration
 	idleTimeout      time.Duration
@@ -130,7 +132,30 @@ func (s *server) routes() http.Handler {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("/ssh", s.handleSSH)
+	if s.config.webDir != "" {
+		mux.HandleFunc("/", s.handleWeb)
+	}
 	return mux
+}
+
+func (s *server) handleWeb(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cleanPath := filepath.Clean("/" + strings.TrimPrefix(r.URL.Path, "/"))
+	if cleanPath == "/" {
+		cleanPath = "/index.html"
+	}
+
+	fullPath := filepath.Join(s.config.webDir, strings.TrimPrefix(cleanPath, "/"))
+	if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
+		http.ServeFile(w, r, fullPath)
+		return
+	}
+
+	http.ServeFile(w, r, filepath.Join(s.config.webDir, "index.html"))
 }
 
 func (s *server) handleSSH(w http.ResponseWriter, r *http.Request) {
@@ -445,6 +470,7 @@ func sanitizeError(err error) string {
 func configFromEnv() proxyConfig {
 	return proxyConfig{
 		listenAddr:       envString("SSH_BUDDY_PROXY_ADDR", defaultListenAddr),
+		webDir:           envString("SSH_BUDDY_WEB_DIR", ""),
 		writeTimeout:     envDuration("SSH_BUDDY_PROXY_WRITE_TIMEOUT", defaultWriteTimeout),
 		dialTimeout:      envDuration("SSH_BUDDY_PROXY_DIAL_TIMEOUT", defaultDialTimeout),
 		idleTimeout:      envDuration("SSH_BUDDY_PROXY_IDLE_TIMEOUT", defaultIdleTimeout),

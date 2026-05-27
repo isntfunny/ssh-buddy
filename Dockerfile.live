@@ -1,0 +1,38 @@
+FROM node:20-alpine AS web-build
+
+WORKDIR /app
+
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml .npmrc ./
+RUN pnpm install --frozen-lockfile
+
+COPY . .
+RUN pnpm build
+
+FROM golang:1.23-alpine AS proxy-build
+
+WORKDIR /src
+
+COPY backend/ws-ssh-proxy/go.mod backend/ws-ssh-proxy/go.sum ./
+RUN go mod download
+
+COPY backend/ws-ssh-proxy/ ./
+RUN CGO_ENABLED=0 go build -o /out/ssh-buddy-web .
+
+FROM alpine:3.21
+
+RUN adduser -D -H -u 10001 app
+
+WORKDIR /app
+
+COPY --from=proxy-build /out/ssh-buddy-web /usr/local/bin/ssh-buddy-web
+COPY --from=web-build /app/dist /app/public
+
+ENV SSH_BUDDY_PROXY_ADDR=:8080
+ENV SSH_BUDDY_WEB_DIR=/app/public
+
+USER app
+EXPOSE 8080
+
+CMD ["/usr/local/bin/ssh-buddy-web"]

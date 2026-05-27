@@ -43,12 +43,12 @@ Builds are available as GitHub Actions artifacts. A proper release page with aut
 
 ## Self-hosting the sync backend
 
-The sync backend is a standard [PocketBase](https://pocketbase.io/) instance. The live Docker setup is in `docker-compose.live.yml`; it keeps PocketBase data in the `pb_data` volume and mounts versioned schema migrations from `backend/pocketbase/pb_migrations`.
+The live Docker setup is in `docker-compose.live.yml`. It serves the web app and WebSocket SSH proxy from one Go container on port `8080`, and runs a standard [PocketBase](https://pocketbase.io/) instance on port `8090`. PocketBase data stays in the `pb_data` volume, and versioned schema migrations are mounted from `backend/pocketbase/pb_migrations`.
 
-To apply the required sync schema on a running deployment, redeploy the PocketBase service:
+To build/run the live stack:
 
 ```bash
-docker compose -f docker-compose.live.yml up -d pocketbase
+docker compose -f docker-compose.live.yml up -d --build
 ```
 
 The app uses normal PocketBase user authentication. No API key or admin token is embedded in the client.

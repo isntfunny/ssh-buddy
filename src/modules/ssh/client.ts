@@ -151,7 +151,7 @@ function proxyUrl(): string {
   const configured = import.meta.env.VITE_SSH_BUDDY_WS_PROXY_URL as string | undefined;
   if (configured) return configured;
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.hostname}:8080/ssh`;
+  return `${protocol}//${window.location.host}/ssh`;
 }
 
 export async function sshStartOutput(sessionId: string): Promise<void> {

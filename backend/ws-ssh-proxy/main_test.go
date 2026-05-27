@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -41,6 +42,40 @@ func TestOriginPolicyRejectsUnknownOrigin(t *testing.T) {
 	if err == nil {
 		_ = conn.Close()
 		t.Fatal("expected origin rejection")
+	}
+}
+
+func TestWebStaticFallback(t *testing.T) {
+	webDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(webDir, "index.html"), []byte("<html>app</html>"), 0o644); err != nil {
+		t.Fatalf("write index: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(webDir, "asset.txt"), []byte("asset"), 0o644); err != nil {
+		t.Fatalf("write asset: %v", err)
+	}
+
+	cfg := testConfig()
+	cfg.webDir = webDir
+	srv := newServer(cfg)
+	httpServer := httptest.NewServer(srv.routes())
+	defer httpServer.Close()
+
+	resp, err := http.Get(httpServer.URL + "/asset.txt")
+	if err != nil {
+		t.Fatalf("get asset: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected asset 200, got %d", resp.StatusCode)
+	}
+
+	resp, err = http.Get(httpServer.URL + "/nested/route")
+	if err != nil {
+		t.Fatalf("get fallback: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected fallback 200, got %d", resp.StatusCode)
 	}
 }
 
