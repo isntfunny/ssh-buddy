@@ -1,9 +1,18 @@
 import { Alert, Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { IconAlertTriangle } from '@tabler/icons-react';
+import { isTauri } from '@tauri-apps/api/core';
 import { useCallback, useEffect, useRef } from 'react';
 import type { Profile } from '../profiles/types';
-import { useSshSession } from '../ssh/useSshSession';
+import { proxyUrl } from '../ssh/client';
+import { useSshSession, type SshState } from '../ssh/useSshSession';
 import { Terminal, type TerminalHandle } from '../terminal/Terminal';
+import {
+  logClosed,
+  logConnected,
+  logConnecting,
+  logError,
+  logHostKey,
+} from '../terminal/connectionLog';
 import { useWorkspace } from './WorkspaceProvider';
 
 type Props = {
@@ -23,6 +32,7 @@ export function ConnectionView({ sessionId, profile, active, onUpdateHistory }: 
   const session = useSshSession(profile);
   const termRef = useRef<TerminalHandle>(null);
   const autoConnectedRef = useRef(false);
+  const logStateRef = useRef<SshState | null>(null);
   const { reportStatus, registerControls, unregisterControls } = useWorkspace();
 
   useEffect(() => {
@@ -35,8 +45,39 @@ export function ConnectionView({ sessionId, profile, active, onUpdateHistory }: 
         lastConnectedAt: new Date().toISOString(),
         lastHostKeyFingerprint: fingerprint,
       });
+      const term = termRef.current;
+      if (term) logConnected(term, fingerprint);
     });
   }, [session.setOnConnected, onUpdateHistory]);
+
+  // Connection protocol written into the terminal as the state changes.
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    const prev = logStateRef.current;
+    if (session.state === prev) return;
+    logStateRef.current = session.state;
+
+    if (session.state === 'connecting') {
+      logConnecting(term, {
+        target: `${profile.username}@${profile.host}:${profile.port}`,
+        auth: profile.auth.kind === 'privateKey' ? 'private key' : 'password',
+        transport: isTauri() ? 'native (Tauri SSH)' : `WebSocket proxy ${proxyUrl()}`,
+        jumpHost: profile.jumpHostId ?? undefined,
+        retry: prev === 'error' || prev === 'closed',
+      });
+    } else if (session.state === 'error') {
+      logError(term, session.error ?? 'unknown error');
+    } else if (session.state === 'closed' && prev === 'connected') {
+      logClosed(term);
+    }
+  }, [session.state, session.error, profile]);
+
+  // First-connection host-key prompt is reflected in the log too.
+  useEffect(() => {
+    const term = termRef.current;
+    if (term && session.tofu) logHostKey(term, session.tofu.fingerprint);
+  }, [session.tofu]);
 
   useEffect(() => {
     session.setOnError((category) => {

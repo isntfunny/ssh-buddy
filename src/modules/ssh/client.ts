@@ -147,7 +147,7 @@ function webSshConnect(req: ConnectRequest): Promise<ConnectOutcome> {
   });
 }
 
-function proxyUrl(): string {
+export function proxyUrl(): string {
   const configured = import.meta.env.VITE_SSH_BUDDY_WS_PROXY_URL as string | undefined;
   if (configured) return configured;
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
