@@ -44,14 +44,18 @@ export const Terminal = forwardRef<TerminalHandle, Props>(({ onData, onResize },
     xtermRef.current = term;
     fitRef.current = fit;
 
-    const onWindowResize = () => {
+    const refit = () => {
       fit.fit();
       onResize(term.cols, term.rows);
     };
-    window.addEventListener('resize', onWindowResize);
+    window.addEventListener('resize', refit);
+    // Refit when the container itself resizes (mosaic pane resize / tab show).
+    const observer = new ResizeObserver(() => refit());
+    observer.observe(containerRef.current);
 
     return () => {
-      window.removeEventListener('resize', onWindowResize);
+      window.removeEventListener('resize', refit);
+      observer.disconnect();
       term.dispose();
       xtermRef.current = null;
       fitRef.current = null;

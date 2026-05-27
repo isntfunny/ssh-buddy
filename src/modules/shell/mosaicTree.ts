@@ -20,6 +20,17 @@ export function isInTabsNode(node: MosaicNode<string> | null, id: string): boole
   return node.children.some((child) => isInTabsNode(child, id));
 }
 
+/** Returns all tab ids of the tabs group containing `id`, or null when `id` is standalone. */
+export function getGroupTabs(node: MosaicNode<string> | null, id: string): string[] | null {
+  if (node == null || typeof node === 'string') return null;
+  if (node.type === 'tabs') return node.tabs.includes(id) ? node.tabs : null;
+  for (const child of node.children) {
+    const found = getGroupTabs(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
 /**
  * Insert `newId` next to `activeId`:
  * - empty tree -> the new id becomes the single leaf

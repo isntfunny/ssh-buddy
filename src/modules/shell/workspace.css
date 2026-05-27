@@ -44,6 +44,13 @@
   color: var(--mantine-color-gray-5);
   transition: background 0.1s ease, color 0.1s ease;
 }
+/* Never let a drag-grab on a tab turn into a text selection. */
+.ssh-mosaic .mosaic-tab-bar-tabs,
+.ssh-mosaic .mosaic-tab-button,
+.ssh-mosaic .mosaic-tab-button * {
+  user-select: none;
+  -webkit-user-select: none;
+}
 .ssh-mosaic .mosaic-tab-button:hover {
   background: var(--mantine-color-dark-6);
 }

@@ -9,6 +9,7 @@ import { useWorkspace } from './WorkspaceProvider';
 type Props = {
   sessionId: string;
   profile: Profile;
+  active: boolean;
   onUpdateHistory?: (patch: {
     lastConnectedAt?: string;
     lastHostKeyFingerprint?: string;
@@ -18,7 +19,7 @@ type Props = {
 
 const TERMINAL_BG = '#1a1b1e';
 
-export function ConnectionView({ sessionId, profile, onUpdateHistory }: Props) {
+export function ConnectionView({ sessionId, profile, active, onUpdateHistory }: Props) {
   const session = useSshSession(profile);
   const termRef = useRef<TerminalHandle>(null);
   const autoConnectedRef = useRef(false);
@@ -61,13 +62,18 @@ export function ConnectionView({ sessionId, profile, onUpdateHistory }: Props) {
     }
   }, [session.state, handleConnect]);
 
-  // Auto-focus the terminal once the connection comes up.
+  // Auto-focus the terminal once the connection comes up (only the visible tab).
   useEffect(() => {
-    if (session.state === 'connected') {
+    if (session.state === 'connected' && active) {
       const t = setTimeout(() => termRef.current?.focus(), 50);
       return () => clearTimeout(t);
     }
-  }, [session.state]);
+  }, [session.state, active]);
+
+  // Focus when this tab becomes the active one in its group.
+  useEffect(() => {
+    if (active) termRef.current?.focus();
+  }, [active]);
 
   // Surface state + controls to the workspace so the tab can show status and act on it.
   useEffect(() => {
