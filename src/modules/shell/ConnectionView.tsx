@@ -1,10 +1,11 @@
-import { Alert, Badge, Button, Group, Modal, Stack, Text } from '@mantine/core';
-import { IconAlertTriangle } from '@tabler/icons-react';
+import { Alert, Badge, Button, Group, Modal, Stack, Text, ActionIcon, Tooltip } from '@mantine/core';
+import { IconAlertTriangle, IconPlug, IconPlugX, IconRefresh, IconEraser } from '@tabler/icons-react';
 import { isTauri } from '@tauri-apps/api/core';
 import { useCallback, useEffect, useRef } from 'react';
 import type { Profile } from '../profiles/types';
 import { useSshSession } from '../ssh/useSshSession';
 import { Terminal, type TerminalHandle } from '../terminal/Terminal';
+import { ProxyWarning } from './ProxyWarning';
 
 type Props = {
   profile: Profile;
@@ -14,6 +15,16 @@ type Props = {
     lastErrorCategory?: string;
   }) => void;
 };
+
+function badgeColor(state: string): string {
+  switch (state) {
+    case 'connected': return 'teal';
+    case 'connecting': return 'yellow';
+    case 'error': return 'red';
+    case 'closed': return 'gray';
+    default: return 'gray';
+  }
+}
 
 export function ConnectionView({ profile, onUpdateHistory }: Props) {
   const session = useSshSession(profile);
@@ -39,38 +50,51 @@ export function ConnectionView({ profile, onUpdateHistory }: Props) {
     });
   }, [session.setOnError, onUpdateHistory]);
 
+  // Terminal Auto-focus upon connection
+  useEffect(() => {
+    if (session.state === 'connected') {
+      setTimeout(() => termRef.current?.focus(), 50);
+    }
+  }, [session.state]);
+
   const handleConnect = useCallback(() => {
     const dims = termRef.current?.fit() ?? { cols: 80, rows: 24 };
     session.connect(dims.cols, dims.rows);
-    termRef.current?.focus();
   }, [session]);
 
   const handleClear = useCallback(() => {
     termRef.current?.clear();
+    termRef.current?.focus();
   }, []);
 
   return (
-    <Stack gap="md" style={{ height: '100%' }}>
-      <Group justify="space-between" align="flex-start">
-        <Group gap="sm">
-          <Text fw={600}>{profile.name}</Text>
-          <Text c="dimmed">{`${profile.username}@${profile.host}:${profile.port}`}</Text>
-          <Badge color={badgeColor(session.state)}>{session.state}</Badge>
+    <Stack gap="xs" style={{ height: '100%' }}>
+      <Group justify="space-between" align="center" bg="dark.7" p="xs" style={{ borderRadius: '4px' }}>
+        <Group gap="md">
+          <Badge color={badgeColor(session.state)} variant="dot">{session.state}</Badge>
+          <Text fw={600} size="sm">{profile.name}</Text>
+          <Text c="dimmed" size="xs" ff="monospace">{`${profile.username}@${profile.host}:${profile.port}`}</Text>
         </Group>
+
         <Group gap="xs">
-          {session.state === 'connected' && (
-            <Button size="xs" variant="subtle" onClick={handleClear}>
-              Clear
-            </Button>
-          )}
+          <Tooltip label="Clear terminal">
+            <ActionIcon variant="light" color="gray" onClick={handleClear} disabled={session.state !== 'connected'}>
+              <IconEraser size={18} />
+            </ActionIcon>
+          </Tooltip>
+
           {session.state === 'connected' ? (
-            <Button color="red" variant="default" onClick={session.disconnect}>
+            <Button size="xs" color="red" variant="light" leftSection={<IconPlugX size={14} />} onClick={session.disconnect}>
               Disconnect
             </Button>
           ) : session.state === 'closed' || session.state === 'error' ? (
-            <Button onClick={handleConnect}>Reconnect</Button>
+            <Button size="xs" leftSection={<IconRefresh size={14} />} onClick={handleConnect}>
+              Reconnect
+            </Button>
           ) : (
             <Button
+              size="xs"
+              leftSection={<IconPlug size={14} />}
               onClick={handleConnect}
               disabled={session.state === 'connecting'}
               loading={session.state === 'connecting'}
@@ -81,40 +105,20 @@ export function ConnectionView({ profile, onUpdateHistory }: Props) {
         </Group>
       </Group>
 
-      {usesWebProxy && (
-        <Text c="yellow" size="sm">
-          Browser SSH uses the configured WebSocket proxy. The proxy can observe SSH credentials
-          during the handshake.
-        </Text>
-      )}
+      {usesWebProxy && <ProxyWarning />}
 
-      {session.error && <Text c="red">{session.error}</Text>}
+      {session.error && <Alert color="red" title="Connection Error">{session.error}</Alert>}
 
-      <Modal
-        opened={session.tofu !== null}
-        onClose={() => session.tofu?.reject()}
-        title="Unknown host key"
-        size="md"
-      >
+      <Modal opened={session.tofu !== null} onClose={() => session.tofu?.reject()} title="Unknown host key" size="md">
         {session.tofu && (
           <Stack gap="md">
             <Alert icon={<IconAlertTriangle size={16} />} color="yellow" title="First connection">
-              This is the first time connecting to{' '}
-              <strong>
-                {session.tofu.host}:{session.tofu.port}
-              </strong>
-              . Verify the fingerprint out-of-band before trusting it.
+              Verify the fingerprint out-of-band before trusting it.
             </Alert>
-            <Text size="sm" ff="monospace">
-              {session.tofu.fingerprint}
-            </Text>
+            <Text size="sm" ff="monospace">{session.tofu.fingerprint}</Text>
             <Group justify="flex-end">
-              <Button variant="default" onClick={session.tofu.reject}>
-                Reject
-              </Button>
-              <Button color="teal" onClick={session.tofu.trust}>
-                Trust &amp; Connect
-              </Button>
+              <Button variant="default" onClick={session.tofu.reject}>Reject</Button>
+              <Button color="teal" onClick={session.tofu.trust}>Trust &amp; Connect</Button>
             </Group>
           </Stack>
         )}
@@ -125,14 +129,4 @@ export function ConnectionView({ profile, onUpdateHistory }: Props) {
       </div>
     </Stack>
   );
-}
-
-function badgeColor(state: string): string {
-  switch (state) {
-    case 'connected': return 'teal';
-    case 'connecting': return 'yellow';
-    case 'error': return 'red';
-    case 'closed': return 'gray';
-    default: return 'gray';
-  }
 }
