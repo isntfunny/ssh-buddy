@@ -4,6 +4,7 @@ import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 const IDB_WRAPPED_KEY = 'ssh-buddy.wrapped-key';
 const IDB_CRED_ID = 'ssh-buddy.webauthn-cred-id';
 const PRF_SALT = new TextEncoder().encode('ssh-buddy-prf-v1');
+const PRF_INPUT = new Uint8Array(PRF_SALT);
 
 function toBase64url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
@@ -15,6 +16,17 @@ function toBase64url(bytes: Uint8Array): string {
 function fromBase64url(s: string): Uint8Array {
   const b = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
   return new Uint8Array([...b].map((c) => c.charCodeAt(0)));
+}
+
+function bufferSourceToBytes(value: ArrayBuffer | ArrayBufferView): Uint8Array {
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+}
+
+function prfResultToBytes(value: unknown): Uint8Array | null {
+  if (typeof value === 'string') return fromBase64url(value);
+  if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) return bufferSourceToBytes(value);
+  return null;
 }
 
 async function wrapWithPrf(masterKey: Uint8Array, prf: Uint8Array): Promise<ArrayBuffer> {
@@ -49,15 +61,13 @@ export async function storeKeyWeb(masterKey: Uint8Array): Promise<void> {
       pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
       timeout: 60000,
       authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
-      extensions: { prf: { eval: { first: toBase64url(PRF_SALT) } } } as Record<string, unknown>,
+      extensions: { prf: { eval: { first: PRF_INPUT } } } as Record<string, unknown>,
     },
   });
 
   const prfFirst = (reg.clientExtensionResults as Record<string, unknown>)?.prf as Record<string, unknown>;
-  const prfResultB64 = (prfFirst?.results as Record<string, string>)?.first;
-  if (!prfResultB64) throw new Error('PRF not supported by this authenticator');
-
-  const prf = fromBase64url(prfResultB64);
+  const prf = prfResultToBytes((prfFirst?.results as Record<string, unknown>)?.first);
+  if (!prf) throw new Error('PRF not supported by this authenticator');
   const wrapped = await wrapWithPrf(masterKey, prf);
 
   await idbSet(IDB_CRED_ID, reg.id);
@@ -77,15 +87,13 @@ export async function loadKeyWeb(): Promise<Uint8Array | null> {
       allowCredentials: [{ type: 'public-key', id: credId }],
       userVerification: 'required',
       timeout: 60000,
-      extensions: { prf: { eval: { first: toBase64url(PRF_SALT) } } } as Record<string, unknown>,
+      extensions: { prf: { eval: { first: PRF_INPUT } } } as Record<string, unknown>,
     },
   });
 
   const prfFirst = (auth.clientExtensionResults as Record<string, unknown>)?.prf as Record<string, unknown>;
-  const prfResultB64 = (prfFirst?.results as Record<string, string>)?.first;
-  if (!prfResultB64) return null;
-
-  const prf = fromBase64url(prfResultB64);
+  const prf = prfResultToBytes((prfFirst?.results as Record<string, unknown>)?.first);
+  if (!prf) return null;
   return unwrapWithPrf(wrapped, prf);
 }
 
