@@ -20,6 +20,9 @@ importers:
       '@mantine/notifications':
         specifier: ^9.2.1
         version: 9.2.1(@mantine/core@9.2.1(@mantine/hooks@9.2.1(react@19.2.6))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@mantine/hooks@9.2.1(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@simplewebauthn/browser':
+        specifier: ^13.3.0
+        version: 13.3.0
       '@tabler/icons-react':
         specifier: ^3.44.0
         version: 3.44.0(react@19.2.6)
@@ -47,6 +50,15 @@ importers:
       '@xterm/xterm':
         specifier: ^6.0.0
         version: 6.0.0
+      idb-keyval:
+        specifier: ^6.2.4
+        version: 6.2.4
+      libsodium-wrappers-sumo:
+        specifier: ^0.8.4
+        version: 0.8.4
+      pocketbase:
+        specifier: ^0.27.0
+        version: 0.27.0
       react:
         specifier: ^19.1.0
         version: 19.2.6
@@ -63,6 +75,9 @@ importers:
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@types/libsodium-wrappers-sumo':
+        specifier: ^0.8.2
+        version: 0.8.2
       '@types/react':
         specifier: ^19.1.8
         version: 19.2.15
@@ -626,6 +641,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@simplewebauthn/browser@13.3.0':
+    resolution: {integrity: sha512-BE/UWv6FOToAdVk0EokzkqQQDOWtNydYlY6+OrmiZ5SCNmb41VehttboTetUM3T/fr6EAFYVXjz4My2wg230rQ==}
+
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -774,6 +792,10 @@ packages:
 
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
+
+  '@types/libsodium-wrappers-sumo@0.8.2':
+    resolution: {integrity: sha512-uFOBpg/r21hExVlh2ty8YpDfSR+Yy3Jn8XS4+SSjitbhTxdYq+pBz/49XRxyUFe8SzqujHf/Wu0/O4d+FUtNfQ==}
+    deprecated: This is a stub types definition. libsodium-wrappers-sumo provides its own type definitions, so you do not need this installed.
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -994,6 +1016,9 @@ packages:
     resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
 
+  idb-keyval@6.2.4:
+    resolution: {integrity: sha512-D/NzHWUmYJGXi++z67aMSrnisb9A3621CyRK5G89JyTlN13C8xf0g04DLxUKMufPem3e3L2JAXR6Z00OWy183Q==}
+
   indent-string@4.0.0:
     resolution: {integrity: sha512-EdDDZu4A2OyIK7Lr/2zG+w5jmbuk1DVBnEwREQvBzspBJkCEbRa8GxU1lghYcaGJCnRWibjDXlq779X1/y5xwg==}
     engines: {node: '>=8'}
@@ -1026,6 +1051,12 @@ packages:
   klona@2.0.6:
     resolution: {integrity: sha512-dhG34DXATL5hSxJbIexCft8FChFXtmskoZYnoPWjXQuebWYCNkVeV3KkGegCK9CP1oswI/vQibS2GY7Em/sJJA==}
     engines: {node: '>= 8'}
+
+  libsodium-sumo@0.8.4:
+    resolution: {integrity: sha512-TMtHShQfVVsaxDygyapvUC3o7YsPgXa/hRWeIgzyFz6w5k/1hirGptCxp1U7XwW3rCskaTTYKgV10v86UiGgNw==}
+
+  libsodium-wrappers-sumo@0.8.4:
+    resolution: {integrity: sha512-ql7hcgulKZ3ekfa2DGAogcCKsWU0diA/0nArz1CFzh93WQdb46/Kj18ka/Hifq6uA3Ush34Pc6vU/6HXeRwUkg==}
 
   loose-envify@1.4.0:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
@@ -1087,6 +1118,9 @@ packages:
   picomatch@4.0.4:
     resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
     engines: {node: '>=12'}
+
+  pocketbase@0.27.0:
+    resolution: {integrity: sha512-K5N6d93UP/BNMbMnlZ6BUfy9VPCIvLyqhJFOsNI8OsZwzvKWEAfyD36boi5K4ECIOl5HMlo0TzuaeGdKpMwizQ==}
 
   postcss-js@4.1.0:
     resolution: {integrity: sha512-oIAOTqgIo7q2EOwbhb8UalYePMvYoIeRY2YKntdpFQXNosSu3vLrniGgmH9OKs/qAkfoj5oB3le/7mINW1LCfw==}
@@ -1859,6 +1893,8 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.60.4':
     optional: true
 
+  '@simplewebauthn/browser@13.3.0': {}
+
   '@standard-schema/spec@1.1.0': {}
 
   '@tabler/icons-react@3.44.0(react@19.2.6)':
@@ -1994,6 +2030,10 @@ snapshots:
   '@types/deep-eql@4.0.2': {}
 
   '@types/estree@1.0.8': {}
+
+  '@types/libsodium-wrappers-sumo@0.8.2':
+    dependencies:
+      libsodium-wrappers-sumo: 0.8.4
 
   '@types/react-dom@19.2.3(@types/react@19.2.15)':
     dependencies:
@@ -2216,6 +2256,8 @@ snapshots:
     transitivePeerDependencies:
       - '@noble/hashes'
 
+  idb-keyval@6.2.4: {}
+
   indent-string@4.0.0: {}
 
   is-potential-custom-element-name@1.0.1: {}
@@ -2253,6 +2295,12 @@ snapshots:
   json5@2.2.3: {}
 
   klona@2.0.6: {}
+
+  libsodium-sumo@0.8.4: {}
+
+  libsodium-wrappers-sumo@0.8.4:
+    dependencies:
+      libsodium-sumo: 0.8.4
 
   loose-envify@1.4.0:
     dependencies:
@@ -2295,6 +2343,8 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.4: {}
+
+  pocketbase@0.27.0: {}
 
   postcss-js@4.1.0(postcss@8.5.15):
     dependencies:
