@@ -18,20 +18,30 @@ export function ProfileSidebar({ profiles, onConnect, onAdd, onEdit, onDelete, o
   const untagged = profiles.filter((p) => !p.tags || p.tags.length === 0);
 
   return (
-    <Stack gap="xs">
-      <Group justify="space-between">
-        <Text fw={500} size="sm" c="dimmed" tt="uppercase">Profiles</Text>
-        <ActionIcon variant="subtle" onClick={onAdd} aria-label="New profile">
-          <IconPlus size={16} />
+    <Stack gap={4}>
+      <Group justify="space-between" px={4}>
+        <Text fw={600} size="xs" c="dimmed" tt="uppercase" lts={1}>Profiles</Text>
+        <ActionIcon variant="subtle" size="sm" onClick={onAdd} aria-label="New profile">
+          <IconPlus size={14} />
         </ActionIcon>
       </Group>
 
       {profiles.length === 0 && (
-        <Text c="dimmed" size="sm">No profiles yet. Click + to create one.</Text>
+        <Text c="dimmed" size="xs" px={4}>No profiles yet. Click + to create one.</Text>
       )}
 
       {tags.map((tag) => (
-        <NavLink key={tag} label={tag} leftSection={<IconHash size={16} />} defaultOpened childrenOffset={28}>
+        <NavLink
+          key={tag}
+          label={tag}
+          leftSection={<IconHash size={14} />}
+          defaultOpened
+          childrenOffset={12}
+          styles={{
+            root: { padding: '4px 8px', minHeight: 32 },
+            label: { fontSize: 'var(--mantine-font-size-xs)', fontWeight: 500 },
+          }}
+        >
           {profiles
             .filter((p) => p.tags?.includes(tag))
             .map((p) => (
@@ -41,7 +51,16 @@ export function ProfileSidebar({ profiles, onConnect, onAdd, onEdit, onDelete, o
       ))}
 
       {untagged.length > 0 && (
-        <NavLink label="Untagged" leftSection={<IconFolder size={16} />} defaultOpened childrenOffset={28}>
+        <NavLink
+          label="Untagged"
+          leftSection={<IconFolder size={14} />}
+          defaultOpened
+          childrenOffset={12}
+          styles={{
+            root: { padding: '4px 8px', minHeight: 32 },
+            label: { fontSize: 'var(--mantine-font-size-xs)', fontWeight: 500 },
+          }}
+        >
           {untagged.map((p) => (
             <ProfileItem key={p.id} profile={p} onConnect={onConnect} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} />
           ))}
@@ -57,13 +76,16 @@ function ProfileItem({ profile, onConnect, onEdit, onDelete, onDuplicate }: Omit
   return (
     <NavLink
       onClick={() => onConnect(profile.id)}
-      leftSection={<IconServer size={16} color={profile.color || 'var(--mantine-color-gray-5)'} />}
-      label={<Text truncate>{profile.name}</Text>}
+      leftSection={<IconServer size={14} color={profile.color || 'var(--mantine-color-gray-5)'} />}
+      label={<Text size="xs" truncate>{profile.name}</Text>}
+      styles={{
+        root: { padding: '4px 8px', minHeight: 32 },
+      }}
       rightSection={
         <Menu opened={menuOpened} onChange={setMenuOpened} withinPortal position="right-start">
           <Menu.Target>
-            <ActionIcon variant="subtle" onClick={(e) => { e.stopPropagation(); setMenuOpened((o) => !o); }}>
-              <IconDotsVertical size={14} />
+            <ActionIcon variant="subtle" size="sm" onClick={(e) => { e.stopPropagation(); setMenuOpened((o) => !o); }}>
+              <IconDotsVertical size={12} />
             </ActionIcon>
           </Menu.Target>
           <Menu.Dropdown>

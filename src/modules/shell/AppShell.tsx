@@ -14,7 +14,7 @@ export function AppShell({ navbar, footer, children }: Props) {
   return (
     <MantineAppShell
       header={{ height: 56 }}
-      navbar={{ width: 280, breakpoint: 'sm', collapsed: { mobile: !opened } }}
+      navbar={{ width: 260, breakpoint: 'sm', collapsed: { mobile: !opened } }}
       padding="md"
     >
       <MantineAppShell.Header>
@@ -23,7 +23,7 @@ export function AppShell({ navbar, footer, children }: Props) {
           <Title order={4}>ssh-buddy</Title>
         </Group>
       </MantineAppShell.Header>
-      <MantineAppShell.Navbar p="md" style={{ display: 'flex', flexDirection: 'column' }}>
+      <MantineAppShell.Navbar p="xs" style={{ display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflow: 'auto' }}>{navbar}</div>
         {footer}
       </MantineAppShell.Navbar>

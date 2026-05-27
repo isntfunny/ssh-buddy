@@ -70,6 +70,9 @@ type Profile = {
 - **Component Tests:** Sidebar tag-grouping logic, `ProxyWarning` persistence.
 - **E2E:** Opening multiple sessions and verifying they don't leak input/output between panes.
 
-## 5. Security
-- Web proxy warning is mandatory and dismissible only per-device.
-- Master password remains the E2E encryption key for all profile metadata, including new `color` and `tags` fields.
+## 6. Implementation Standards (Mandatory)
+- **Modularity:** Every distinct logical component (Workspace, TabBar, SidebarGroup, ContextMenu) MUST live in its own `.tsx` file.
+- **File Size Limit:** No single source file should exceed **500 lines of code**. If a component grows larger, it must be decomposed into sub-components or utility hooks.
+- **State Separation:** Terminal sessions and connection state should be managed in a specialized `WorkspaceProvider` to avoid bloating `App.tsx`.
+- **Mantine First:** Use Mantine primitives for all UI elements (Menus, Tabs, Groups, Stacks) unless a specialized library like `react-mosaic` is functionally required for the layout engine itself.
+

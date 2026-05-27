@@ -7,7 +7,7 @@ import type { Profile } from '../profiles/types';
 import { useWorkspace } from './WorkspaceProvider';
 import { ConnectionView } from './ConnectionView';
 import { ProxyWarning } from './ProxyWarning';
-import { SessionTabButton, StandaloneHeader } from './SessionTab';
+import { SessionTabTitle, StandaloneHeader } from './SessionTab';
 import { collectLeaves, isInTabsNode } from './mosaicTree';
 
 type HistoryPatch = {
@@ -79,7 +79,9 @@ export function Workspace({ profiles, onUpdateHistory }: Props) {
             value={tree}
             onChange={changeTree}
             renderTile={renderTile}
-            renderTabButton={(props) => <SessionTabButton {...props} profiles={profiles} />}
+            renderTabTitle={({ tabKey, isActive }) => (
+              <SessionTabTitle sessionId={tabKey} isActive={isActive} profiles={profiles} />
+            )}
             canClose={() => 'canClose' as const}
             zeroStateView={<div />}
           />

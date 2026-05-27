@@ -21,14 +21,20 @@ export function statusColor(state: SshState | undefined): string {
 function StatusDot({ state }: { state: SshState | undefined }) {
   return (
     <Box
+      component="span"
       w={8}
       h={8}
-      style={{ borderRadius: '50%', background: statusColor(state), flex: '0 0 auto' }}
+      style={{
+        display: 'inline-block',
+        borderRadius: '50%',
+        background: statusColor(state),
+        flex: '0 0 auto',
+      }}
     />
   );
 }
 
-/** Shared right-click action menu for a session (tab or standalone header). */
+/** Shared right-click action menu for a session (tab title or standalone header). */
 function SessionMenu({
   sessionId,
   opened,
@@ -63,11 +69,18 @@ function SessionMenu({
             Reconnect
           </Menu.Item>
         )}
-        <Menu.Item leftSection={<IconEraser size={14} />} onClick={() => getControls(sessionId)?.clear()}>
+        <Menu.Item
+          leftSection={<IconEraser size={14} />}
+          onClick={() => getControls(sessionId)?.clear()}
+        >
           Clear terminal
         </Menu.Item>
         <Menu.Divider />
-        <Menu.Item color="red" leftSection={<IconX size={14} />} onClick={() => closeSession(sessionId)}>
+        <Menu.Item
+          color="red"
+          leftSection={<IconX size={14} />}
+          onClick={() => closeSession(sessionId)}
+        >
           Close session
         </Menu.Item>
       </Menu.Dropdown>
@@ -75,76 +88,58 @@ function SessionMenu({
   );
 }
 
-type TabButtonProps = {
-  tabKey: string;
-  index: number;
-  isActive: boolean;
-  onTabClick: () => void;
-  onTabClose?: (tabKey: string, index: number) => void;
-  profiles: Profile[];
-};
-
-/** Custom tab button rendered inside react-mosaic's tab bar (drag handled by the wrapper). */
-export function SessionTabButton({
-  tabKey,
-  index,
+/**
+ * Tab title content rendered inside react-mosaic's default (draggable) tab button.
+ * Using renderTabTitle — not renderTabButton — keeps the native drag source + close X.
+ */
+export function SessionTabTitle({
+  sessionId,
   isActive,
-  onTabClick,
-  onTabClose,
   profiles,
-}: TabButtonProps) {
+}: {
+  sessionId: string;
+  isActive: boolean;
+  profiles: Profile[];
+}) {
   const { sessions, statuses, setActiveSession } = useWorkspace();
   const [menuOpened, setMenuOpened] = useState(false);
-  const profile = profiles.find((p) => p.id === sessions[tabKey]?.profileId);
-  const state = statuses[tabKey];
+  const profile = profiles.find((p) => p.id === sessions[sessionId]?.profileId);
+  const state = statuses[sessionId];
 
   return (
-    <SessionMenu sessionId={tabKey} opened={menuOpened} onOpenChange={setMenuOpened}>
-      <Group
-        gap={6}
-        wrap="nowrap"
-        px={8}
-        py={4}
+    <SessionMenu sessionId={sessionId} opened={menuOpened} onOpenChange={setMenuOpened}>
+      <Box
+        component="span"
         style={{
-          cursor: 'pointer',
-          borderRadius: 6,
-          background: isActive ? 'var(--mantine-color-dark-5)' : 'transparent',
-          borderBottom: `2px solid ${isActive && profile?.color ? profile.color : 'transparent'}`,
-          color: isActive ? 'var(--mantine-color-gray-1)' : 'var(--mantine-color-gray-5)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          paddingLeft: 6,
+          borderLeft: `3px solid ${profile?.color ?? 'transparent'}`,
         }}
-        onClick={() => {
-          onTabClick();
-          setActiveSession(tabKey);
-        }}
+        onClick={() => setActiveSession(sessionId)}
         onContextMenu={(e) => {
           e.preventDefault();
           setMenuOpened(true);
         }}
       >
         <StatusDot state={state} />
-        <Text size="xs" fw={isActive ? 600 : 400} style={{ maxWidth: 160 }} truncate>
+        <Text component="span" size="xs" fw={isActive ? 600 : 400} truncate style={{ maxWidth: 160 }}>
           {profile?.name ?? 'Unknown'}
         </Text>
-        <ActionIcon
-          component="div"
-          size="xs"
-          variant="subtle"
-          color="gray"
-          aria-label="Close session"
-          onClick={(e) => {
-            e.stopPropagation();
-            onTabClose?.(tabKey, index);
-          }}
-        >
-          <IconX size={12} />
-        </ActionIcon>
-      </Group>
+      </Box>
     </SessionMenu>
   );
 }
 
 /** Header bar for a standalone session (one not inside a tabs group). */
-export function StandaloneHeader({ sessionId, profiles }: { sessionId: string; profiles: Profile[] }) {
+export function StandaloneHeader({
+  sessionId,
+  profiles,
+}: {
+  sessionId: string;
+  profiles: Profile[];
+}) {
   const { sessions, statuses, closeSession } = useWorkspace();
   const [menuOpened, setMenuOpened] = useState(false);
   const profile = profiles.find((p) => p.id === sessions[sessionId]?.profileId);
@@ -158,7 +153,7 @@ export function StandaloneHeader({ sessionId, profiles }: { sessionId: string; p
       style={{
         height: 36,
         background: 'var(--mantine-color-dark-8)',
-        borderBottom: `1px solid var(--mantine-color-dark-4)`,
+        borderBottom: '1px solid var(--mantine-color-dark-4)',
         flex: '0 0 auto',
       }}
     >
@@ -168,7 +163,8 @@ export function StandaloneHeader({ sessionId, profiles }: { sessionId: string; p
           wrap="nowrap"
           style={{
             cursor: 'context-menu',
-            borderBottom: `2px solid ${profile?.color ?? 'transparent'}`,
+            paddingLeft: 6,
+            borderLeft: `3px solid ${profile?.color ?? 'transparent'}`,
           }}
           onContextMenu={(e) => {
             e.preventDefault();

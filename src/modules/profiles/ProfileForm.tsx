@@ -7,6 +7,7 @@ import {
   PasswordInput,
   SegmentedControl,
   Stack,
+  TagsInput,
   Text,
   Textarea,
   TextInput,
@@ -33,6 +34,7 @@ type FormValues = {
   passphrase: string;
   notes: string;
   color: string;
+  tags: string[];
 };
 
 function buildAuth(v: FormValues): AuthMethod {
@@ -53,6 +55,7 @@ function fromProfile(p?: Profile): FormValues {
     passphrase: p?.auth.kind === 'privateKey' ? p.auth.passphrase ?? '' : '',
     notes: p?.notes ?? '',
     color: p?.color ?? '',
+    tags: p?.tags ?? [],
   };
 }
 
@@ -106,6 +109,7 @@ export function ProfileForm({ initial, onSubmit, onCancel }: Props) {
           auth: buildAuth(values),
           notes: values.notes.trim() || undefined,
           color: values.color || undefined,
+          tags: values.tags,
         });
       })}
     >
@@ -151,6 +155,12 @@ export function ProfileForm({ initial, onSubmit, onCancel }: Props) {
             )}
           </>
         )}
+        <TagsInput
+          label="Tags"
+          placeholder="e.g. prod, web, backup"
+          description="Used to group profiles in the sidebar"
+          {...form.getInputProps('tags')}
+        />
         <ColorInput
           label="Profile color"
           description="Used for tab borders and the sidebar indicator"

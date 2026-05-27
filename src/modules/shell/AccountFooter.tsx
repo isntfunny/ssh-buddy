@@ -7,7 +7,7 @@ type Props =
   | { state: 'unlocked'; user: PbUser; lastSyncedAt: Date | null; syncStatus: 'idle' | 'syncing' | 'error'; onClick: () => void };
 
 export function AccountFooter(props: Props) {
-  const base = { borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8, marginTop: 8 };
+  const base = { borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 6, marginTop: 6 };
 
   if (props.state === 'not-configured') {
     return (
