@@ -2,9 +2,10 @@ import { useRef, useState } from 'react';
 import { Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { AppShell } from './modules/shell/AppShell';
-import { ConnectionView } from './modules/shell/ConnectionView';
 import { ProfileForm } from './modules/profiles/ProfileForm';
-import { ProfileList } from './modules/profiles/ProfileList';
+import { ProfileSidebar } from './modules/profiles/ProfileSidebar';
+import { WorkspaceProvider, useWorkspace } from './modules/shell/WorkspaceProvider';
+import { Workspace } from './modules/shell/Workspace';
 import { useProfiles } from './modules/profiles/useProfiles';
 import { exportProfilesToJson, downloadJson, parseProfilesImport } from './modules/profiles/importExport';
 import { useUpdater } from './modules/updater/useUpdater';
@@ -15,23 +16,12 @@ import { SetupModal } from './modules/auth/SetupModal';
 import { AccountModal } from './modules/auth/AccountModal';
 import { AccountFooter } from './modules/shell/AccountFooter';
 
-function App() {
-  useUpdater();
+function InnerApp() {
+  const { addSession } = useWorkspace();
   const { profiles, loading, error, reload, create, update, remove } = useProfiles();
-  const {
-    state,
-    key,
-    user,
-    biometricAvailable,
-    signUp,
-    signIn,
-    unlock,
-    unlockBiometric,
-    rememberKey,
-    signOut,
-  } = useAuth();
+  const { state, key, user, biometricAvailable, signUp, signIn, unlock, unlockBiometric, rememberKey, signOut } = useAuth();
   const { status: syncStatus, lastSyncedAt } = useSync(key, reload);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -39,7 +29,6 @@ function App() {
   const [biometricPromptOpen, setBiometricPromptOpen] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  const selected = profiles.find((p) => p.id === selectedId) ?? null;
   const editing = profiles.find((p) => p.id === editingId) ?? null;
 
   const handleExport = () => {
@@ -87,101 +76,45 @@ function App() {
     }
   };
 
+  const handleDuplicate = async (id: string) => {
+    const profile = profiles.find((p) => p.id === id);
+    if (!profile) return;
+    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = profile;
+    await create({ ...rest, name: `${profile.name} (Copy)` });
+    notifications.show({ message: 'Profile duplicated' });
+  };
+
   const footer = (
     <>
-      {state === 'not-configured' && (
-        <AccountFooter state="not-configured" onClick={handleFooterClick} />
-      )}
-      {state === 'locked' && user && (
-        <AccountFooter state="locked" user={user} onClick={handleFooterClick} />
-      )}
-      {state === 'unlocked' && user && (
-        <AccountFooter
-          state="unlocked"
-          user={user}
-          lastSyncedAt={lastSyncedAt}
-          syncStatus={syncStatus}
-          onClick={handleFooterClick}
-        />
-      )}
+      {state === 'not-configured' && <AccountFooter state="not-configured" onClick={handleFooterClick} />}
+      {state === 'locked' && user && <AccountFooter state="locked" user={user} onClick={handleFooterClick} />}
+      {state === 'unlocked' && user && <AccountFooter state="unlocked" user={user} lastSyncedAt={lastSyncedAt} syncStatus={syncStatus} onClick={handleFooterClick} />}
     </>
   );
 
   return (
     <>
       {state === 'locked' && (
-        <UnlockScreen
-          biometricAvailable={biometricAvailable}
-          onUnlockBiometric={unlockBiometric}
-          onUnlockPassword={unlock}
-        />
+        <UnlockScreen biometricAvailable={biometricAvailable} onUnlockBiometric={unlockBiometric} onUnlockPassword={unlock} />
       )}
 
-      <SetupModal
-        opened={setupOpen}
-        onClose={() => setSetupOpen(false)}
-        onSignUp={async (email, pbPw, masterPw) => {
-          await signUp(email, pbPw, masterPw);
-          if (biometricAvailable) setBiometricPromptOpen(true);
-          setSetupOpen(false);
-        }}
-        onSignIn={async (email, pbPw, masterPw) => {
-          await signIn(email, pbPw, masterPw);
-          if (biometricAvailable) setBiometricPromptOpen(true);
-          setSetupOpen(false);
-        }}
-      />
+      <SetupModal opened={setupOpen} onClose={() => setSetupOpen(false)} onSignUp={async (email, pbPw, masterPw) => { await signUp(email, pbPw, masterPw); if (biometricAvailable) setBiometricPromptOpen(true); setSetupOpen(false); }} onSignIn={async (email, pbPw, masterPw) => { await signIn(email, pbPw, masterPw); if (biometricAvailable) setBiometricPromptOpen(true); setSetupOpen(false); }} />
 
-      <Modal
-        opened={biometricPromptOpen}
-        onClose={() => setBiometricPromptOpen(false)}
-        title="Gerät merken?"
-        size="sm"
-      >
+      <Modal opened={biometricPromptOpen} onClose={() => setBiometricPromptOpen(false)} title="Gerät merken?" size="sm">
         <Stack gap="sm">
           <Text size="sm">Beim nächsten Start automatisch entsperren.</Text>
           <Group justify="flex-end">
-            <Button variant="default" onClick={() => setBiometricPromptOpen(false)}>
-              Später
-            </Button>
-            <Button
-              onClick={handleRememberDevice}
-            >
-              Ja, merken
-            </Button>
+            <Button variant="default" onClick={() => setBiometricPromptOpen(false)}>Später</Button>
+            <Button onClick={handleRememberDevice}>Ja, merken</Button>
           </Group>
         </Stack>
       </Modal>
 
       {user && (
-        <AccountModal
-          opened={accountOpen}
-          onClose={() => setAccountOpen(false)}
-          user={user}
-          syncStatus={syncStatus}
-          lastSyncedAt={lastSyncedAt}
-          biometricAvailable={state === 'unlocked' && biometricAvailable}
-          onRememberDevice={handleRememberDevice}
-          onSignOut={async () => {
-            await signOut();
-            setAccountOpen(false);
-          }}
-          onExport={handleExport}
-          onImport={() => importInputRef.current?.click()}
-        />
+        <AccountModal opened={accountOpen} onClose={() => setAccountOpen(false)} user={user} syncStatus={syncStatus} lastSyncedAt={lastSyncedAt} biometricAvailable={state === 'unlocked' && biometricAvailable} onRememberDevice={handleRememberDevice} onSignOut={async () => { await signOut(); setAccountOpen(false); }} onExport={handleExport} onImport={() => importInputRef.current?.click()} />
       )}
 
-      <input
-        ref={importInputRef}
-        type="file"
-        accept=".json"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void handleImport(file);
-          e.target.value = '';
-        }}
-      />
+      <input ref={importInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={(e) => { const file = e.target.files?.[0]; if (file) void handleImport(file); e.target.value = ''; }} />
 
       <AppShell
         footer={footer}
@@ -191,55 +124,20 @@ function App() {
           ) : error ? (
             <Text c="red">{error.message}</Text>
           ) : (
-            <ProfileList
+            <ProfileSidebar
               profiles={profiles}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              onAdd={() => {
-                setEditingId(null);
-                setEditorOpen(true);
-              }}
-              onDelete={async (id) => {
-                await remove(id);
-                if (selectedId === id) setSelectedId(null);
-                notifications.show({ message: 'Profile deleted' });
-              }}
+              onConnect={addSession}
+              onAdd={() => { setEditingId(null); setEditorOpen(true); }}
+              onEdit={(id) => { setEditingId(id); setEditorOpen(true); }}
+              onDelete={async (id) => { await remove(id); notifications.show({ message: 'Profile deleted' }); }}
+              onDuplicate={handleDuplicate}
             />
           )
         }
       >
-        {selected ? (
-          <Stack gap="sm" style={{ height: '100%', flex: 1 }}>
-            <Group justify="flex-end">
-              <Button
-                onClick={() => {
-                  setEditingId(selected.id);
-                  setEditorOpen(true);
-                }}
-                variant="subtle"
-                size="xs"
-              >
-                Edit profile
-              </Button>
-            </Group>
-            <div style={{ flex: 1, minHeight: 0 }}>
-              <ConnectionView
-                key={selected.id}
-                profile={selected}
-                onUpdateHistory={(patch) => update(selected.id, patch)}
-              />
-            </div>
-          </Stack>
-        ) : (
-          <Text c="dimmed">Select a profile, or create one with the + button.</Text>
-        )}
+        <Workspace profiles={profiles} onUpdateHistory={update} />
 
-        <Modal
-          opened={editorOpen}
-          onClose={() => setEditorOpen(false)}
-          title={editing ? 'Edit profile' : 'New profile'}
-          size="lg"
-        >
+        <Modal opened={editorOpen} onClose={() => setEditorOpen(false)} title={editing ? 'Edit profile' : 'New profile'} size="lg">
           <ProfileForm
             initial={editing ?? undefined}
             onCancel={() => setEditorOpen(false)}
@@ -248,8 +146,7 @@ function App() {
                 await update(editing.id, values);
                 notifications.show({ message: 'Profile updated' });
               } else {
-                const created = await create(values);
-                setSelectedId(created.id);
+                await create(values);
                 notifications.show({ message: 'Profile created' });
               }
               setEditorOpen(false);
@@ -258,6 +155,15 @@ function App() {
         </Modal>
       </AppShell>
     </>
+  );
+}
+
+function App() {
+  useUpdater();
+  return (
+    <WorkspaceProvider>
+      <InnerApp />
+    </WorkspaceProvider>
   );
 }
 
