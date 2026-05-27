@@ -16,7 +16,6 @@ import {
 
 export type SshState = 'idle' | 'connecting' | 'connected' | 'closed' | 'error';
 
-
 export function useSshSession(profile: Profile | null) {
   const [state, setState] = useState<SshState>('idle');
   const [error, setError] = useState<string | null>(null);
