@@ -8,6 +8,7 @@ export type ProfileStorage = {
   create(input: NewProfileInput): Promise<Profile>;
   update(id: string, patch: Partial<NewProfileInput>): Promise<Profile>;
   remove(id: string): Promise<void>;
+  upsert(profile: Profile): Promise<void>;
 };
 
 function nowIso(): string {
@@ -47,6 +48,14 @@ export function createInMemoryStorage(): ProfileStorage {
       const before = profiles.length;
       profiles = profiles.filter((p) => p.id !== id);
       if (profiles.length === before) throw new Error(`Profile not found: ${id}`);
+    },
+    async upsert(profile) {
+      const idx = profiles.findIndex((p) => p.id === profile.id);
+      if (idx === -1) {
+        profiles = [...profiles, profile];
+      } else {
+        profiles = profiles.map((p, i) => (i === idx ? profile : p));
+      }
     },
   };
 }
@@ -104,6 +113,16 @@ export function createFileStorage(): ProfileStorage {
       if (data.profiles.length === before) throw new Error(`Profile not found: ${id}`);
       await writeFile(data);
     },
+    async upsert(profile) {
+      const data = (await readFile()) ?? { schemaVersion: SCHEMA_VERSION, profiles: [] };
+      const idx = data.profiles.findIndex((p) => p.id === profile.id);
+      if (idx === -1) {
+        data.profiles = [...data.profiles, profile];
+      } else {
+        data.profiles = data.profiles.map((p, i) => (i === idx ? profile : p));
+      }
+      await writeFile(data);
+    },
   };
 }
 
@@ -149,6 +168,16 @@ export function createBrowserStorage(): ProfileStorage {
       const before = data.profiles.length;
       data.profiles = data.profiles.filter((p) => p.id !== id);
       if (data.profiles.length === before) throw new Error(`Profile not found: ${id}`);
+      writeBrowserFile(data);
+    },
+    async upsert(profile) {
+      const data = readBrowserFile();
+      const idx = data.profiles.findIndex((p) => p.id === profile.id);
+      if (idx === -1) {
+        data.profiles = [...data.profiles, profile];
+      } else {
+        data.profiles = data.profiles.map((p, i) => (i === idx ? profile : p));
+      }
       writeBrowserFile(data);
     },
   };

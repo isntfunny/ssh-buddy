@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod error;
 pub mod ssh;
+pub mod storage;
 
 use tauri::Manager;
 
@@ -37,6 +38,9 @@ pub fn run() {
             commands::ssh::ssh_validate_private_key,
             commands::ssh::ssh_trust_host_key,
             commands::ssh::ssh_reject_host_key,
+            storage::keystore::storage_store_key,
+            storage::keystore::storage_load_key,
+            storage::keystore::storage_clear_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
