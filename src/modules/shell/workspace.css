@@ -113,6 +113,7 @@
 }
 .ssh-mosaic .mosaic-default-control.replace-button,
 .ssh-mosaic .mosaic-default-control.expand-button,
+.ssh-mosaic .mosaic-tab-toolbar-controls .close-button,
 .ssh-mosaic .mosaic-tab-add-button {
   display: none;
 }

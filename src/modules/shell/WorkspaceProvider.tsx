@@ -28,6 +28,7 @@ type WorkspaceContextType = {
   statuses: Record<string, SshState>;
   activeSessionId: string | null;
   addSession: (profileId: string) => void;
+  createSession: (profileId: string) => string;
   changeTree: (tree: MosaicNode<string> | null) => void;
   closeSession: (sessionId: string) => void;
   setActiveSession: (sessionId: string) => void;
@@ -55,6 +56,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     },
     [activeSessionId],
   );
+
+  // Register a session WITHOUT touching the tree — used by mosaic's createNode
+  // (split / add-tab), which inserts the returned id into the tree itself.
+  const createSession = useCallback((profileId: string) => {
+    const sessionId = uuidv4();
+    setSessions((prev) => ({ ...prev, [sessionId]: { profileId } }));
+    setActiveSessionId(sessionId);
+    return sessionId;
+  }, []);
 
   // Single funnel for every tree mutation (mosaic drag/resize/close + our closeSession).
   // Prunes session metadata + statuses for leaves that no longer exist.
@@ -123,6 +133,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         statuses,
         activeSessionId,
         addSession,
+        createSession,
         changeTree,
         closeSession,
         setActiveSession,
