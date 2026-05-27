@@ -18,13 +18,25 @@ import { AccountFooter } from './modules/shell/AccountFooter';
 function App() {
   useUpdater();
   const { profiles, loading, error, reload, create, update, remove } = useProfiles();
-  const { state, key, user, biometricAvailable, signUp, signIn, unlock, unlockBiometric, signOut } = useAuth();
+  const {
+    state,
+    key,
+    user,
+    biometricAvailable,
+    signUp,
+    signIn,
+    unlock,
+    unlockBiometric,
+    rememberKey,
+    signOut,
+  } = useAuth();
   const { status: syncStatus, lastSyncedAt } = useSync(key, reload);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [biometricPromptOpen, setBiometricPromptOpen] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const selected = profiles.find((p) => p.id === selectedId) ?? null;
@@ -100,29 +112,44 @@ function App() {
         onClose={() => setSetupOpen(false)}
         onSignUp={async (email, pbPw, masterPw) => {
           await signUp(email, pbPw, masterPw);
-          if (biometricAvailable) {
-            notifications.show({
-              title: 'Remember this device?',
-              message: 'Unlock automatically next time.',
-              autoClose: false,
-              withCloseButton: true,
-            });
-          }
+          if (biometricAvailable) setBiometricPromptOpen(true);
           setSetupOpen(false);
         }}
         onSignIn={async (email, pbPw, masterPw) => {
           await signIn(email, pbPw, masterPw);
-          if (biometricAvailable) {
-            notifications.show({
-              title: 'Remember this device?',
-              message: 'Unlock automatically next time.',
-              autoClose: false,
-              withCloseButton: true,
-            });
-          }
+          if (biometricAvailable) setBiometricPromptOpen(true);
           setSetupOpen(false);
         }}
       />
+
+      <Modal
+        opened={biometricPromptOpen}
+        onClose={() => setBiometricPromptOpen(false)}
+        title="Gerät merken?"
+        size="sm"
+      >
+        <Stack gap="sm">
+          <Text size="sm">Beim nächsten Start automatisch entsperren.</Text>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setBiometricPromptOpen(false)}>
+              Später
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  await rememberKey(true);
+                  notifications.show({ message: 'Gerät wurde gemerkt' });
+                  setBiometricPromptOpen(false);
+                } catch (e) {
+                  notifications.show({ message: `Speichern fehlgeschlagen: ${String(e)}`, color: 'red' });
+                }
+              }}
+            >
+              Ja, merken
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       {user && (
         <AccountModal
