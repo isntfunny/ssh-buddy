@@ -44,3 +44,4 @@ coverage/
 .playwright-mcp/
 ssh-buddy-error.png
 backend/ws-ssh-proxy/ws-ssh-proxy
+.superpowers/
