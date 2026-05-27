@@ -1,158 +1,135 @@
-import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 import {
-  createBalancedTreeFromLeaves,
-  getLeaves,
-  type MosaicNode,
-} from 'react-mosaic-component';
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import type { MosaicNode } from 'react-mosaic-component';
 import { v4 as uuidv4 } from 'uuid';
+import type { SshState } from '../ssh/useSshSession';
+import { collectLeaves, insertSession, removeLeaf } from './mosaicTree';
 
-export const MAX_PANES = 4;
-
-export type WorkspaceSession = {
-  id: string; // The tab id
+export type SessionMeta = {
   profileId: string;
 };
 
-export type PaneData = {
-  id: string;
-  sessions: WorkspaceSession[];
-  activeSessionId: string | null;
+/** Imperative handles a session's view registers so tabs can act on it. */
+export type SessionControls = {
+  connect: () => void;
+  disconnect: () => void;
+  clear: () => void;
 };
 
 type WorkspaceContextType = {
-  panes: Record<string, PaneData>;
-  mosaicTree: MosaicNode<string> | null;
-  activePaneId: string | null;
-  setMosaicTree: (tree: MosaicNode<string> | null) => void;
-  setActivePane: (paneId: string) => void;
+  tree: MosaicNode<string> | null;
+  sessions: Record<string, SessionMeta>;
+  statuses: Record<string, SshState>;
+  activeSessionId: string | null;
   addSession: (profileId: string) => void;
-  splitPane: () => void;
-  closePane: (paneId: string) => void;
-  removeSession: (paneId: string, sessionId: string) => void;
-  setActiveSession: (paneId: string, sessionId: string) => void;
+  changeTree: (tree: MosaicNode<string> | null) => void;
+  closeSession: (sessionId: string) => void;
+  setActiveSession: (sessionId: string) => void;
+  reportStatus: (sessionId: string, state: SshState) => void;
+  registerControls: (sessionId: string, controls: SessionControls) => void;
+  unregisterControls: (sessionId: string) => void;
+  getControls: (sessionId: string) => SessionControls | undefined;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextType | null>(null);
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const [panes, setPanes] = useState<Record<string, PaneData>>({});
-  const [mosaicTree, setMosaicTree] = useState<MosaicNode<string> | null>(null);
-  const [activePaneId, setActivePaneId] = useState<string | null>(null);
+  const [tree, setTree] = useState<MosaicNode<string> | null>(null);
+  const [sessions, setSessions] = useState<Record<string, SessionMeta>>({});
+  const [statuses, setStatuses] = useState<Record<string, SshState>>({});
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const controlsRef = useRef<Map<string, SessionControls>>(new Map());
 
-  const setActivePane = useCallback((paneId: string) => setActivePaneId(paneId), []);
-
-  // Side effects (id generation, setMosaicTree) stay OUT of setState updaters:
-  // StrictMode invokes updaters twice, which would mint divergent ids and leave
-  // the mosaic tree pointing at panes that aren't in `panes`.
   const addSession = useCallback(
     (profileId: string) => {
       const sessionId = uuidv4();
-      const newSession: WorkspaceSession = { id: sessionId, profileId };
-      const paneIds = Object.keys(panes);
-
-      if (paneIds.length === 0) {
-        const paneId = uuidv4();
-        setPanes({ [paneId]: { id: paneId, sessions: [newSession], activeSessionId: sessionId } });
-        setMosaicTree(paneId);
-        setActivePaneId(paneId);
-        return;
-      }
-
-      // Open in the active pane (fall back to the first pane if it's gone).
-      const targetPaneId = activePaneId && panes[activePaneId] ? activePaneId : paneIds[0];
-      setPanes((prev) => ({
-        ...prev,
-        [targetPaneId]: {
-          ...prev[targetPaneId],
-          sessions: [...prev[targetPaneId].sessions, newSession],
-          activeSessionId: sessionId,
-        },
-      }));
-      setActivePaneId(targetPaneId);
+      setSessions((prev) => ({ ...prev, [sessionId]: { profileId } }));
+      setTree((prev) => insertSession(prev, activeSessionId, sessionId));
+      setActiveSessionId(sessionId);
     },
-    [panes, activePaneId],
+    [activeSessionId],
   );
 
-  const splitPane = useCallback(() => {
-    const leaves = getLeaves(mosaicTree);
-    if (leaves.length >= MAX_PANES) return;
-    const paneId = uuidv4();
-    setPanes((prev) => ({ ...prev, [paneId]: { id: paneId, sessions: [], activeSessionId: null } }));
-    setMosaicTree(createBalancedTreeFromLeaves([...leaves, paneId]));
-    setActivePaneId(paneId);
-  }, [mosaicTree]);
+  // Single funnel for every tree mutation (mosaic drag/resize/close + our closeSession).
+  // Prunes session metadata + statuses for leaves that no longer exist.
+  const changeTree = useCallback((next: MosaicNode<string> | null) => {
+    const liveIds = new Set(collectLeaves(next));
+    setTree(next);
+    setSessions((prev) => {
+      const pruned: Record<string, SessionMeta> = {};
+      for (const id of Object.keys(prev)) if (liveIds.has(id)) pruned[id] = prev[id];
+      return pruned;
+    });
+    setStatuses((prev) => {
+      const pruned: Record<string, SshState> = {};
+      for (const id of Object.keys(prev)) if (liveIds.has(id)) pruned[id] = prev[id];
+      return pruned;
+    });
+    for (const id of controlsRef.current.keys()) {
+      if (!liveIds.has(id)) controlsRef.current.delete(id);
+    }
+    setActiveSessionId((cur) => (cur && liveIds.has(cur) ? cur : ([...liveIds][0] ?? null)));
+  }, []);
 
-  const closePane = useCallback(
-    (paneId: string) => {
-      const remaining = getLeaves(mosaicTree).filter((id) => id !== paneId);
-      setPanes((prev) => {
-        const next = { ...prev };
-        delete next[paneId];
-        return next;
+  const closeSession = useCallback((sessionId: string) => {
+    setTree((prevTree) => {
+      const next = removeLeaf(prevTree, sessionId);
+      const liveIds = new Set(collectLeaves(next));
+      setSessions((prev) => {
+        const pruned: Record<string, SessionMeta> = {};
+        for (const id of Object.keys(prev)) if (liveIds.has(id)) pruned[id] = prev[id];
+        return pruned;
       });
-      setMosaicTree(remaining.length ? createBalancedTreeFromLeaves(remaining) : null);
-      setActivePaneId((cur) => (cur === paneId ? remaining[0] ?? null : cur));
-    },
-    [mosaicTree],
-  );
-
-  const removeSession = useCallback(
-    (paneId: string, sessionId: string) => {
-      const pane = panes[paneId];
-      if (!pane) return;
-      const newSessions = pane.sessions.filter((s) => s.id !== sessionId);
-
-      // Closing the last tab closes the pane itself.
-      if (newSessions.length === 0) {
-        const remaining = getLeaves(mosaicTree).filter((id) => id !== paneId);
-        setPanes((prev) => {
-          const next = { ...prev };
-          delete next[paneId];
-          return next;
-        });
-        setMosaicTree(remaining.length ? createBalancedTreeFromLeaves(remaining) : null);
-        setActivePaneId((cur) => (cur === paneId ? remaining[0] ?? null : cur));
-        return;
+      setStatuses((prev) => {
+        const pruned: Record<string, SshState> = {};
+        for (const id of Object.keys(prev)) if (liveIds.has(id)) pruned[id] = prev[id];
+        return pruned;
+      });
+      for (const id of controlsRef.current.keys()) {
+        if (!liveIds.has(id)) controlsRef.current.delete(id);
       }
-
-      const activeSessionId =
-        pane.activeSessionId === sessionId
-          ? newSessions[newSessions.length - 1].id
-          : pane.activeSessionId;
-
-      setPanes((prev) => ({
-        ...prev,
-        [paneId]: { ...pane, sessions: newSessions, activeSessionId },
-      }));
-    },
-    [panes, mosaicTree],
-  );
-
-  const setActiveSession = useCallback((paneId: string, sessionId: string) => {
-    setActivePaneId(paneId);
-    setPanes((prev) => {
-      const pane = prev[paneId];
-      if (!pane) return prev;
-      return {
-        ...prev,
-        [paneId]: { ...pane, activeSessionId: sessionId },
-      };
+      setActiveSessionId((cur) => (cur && liveIds.has(cur) ? cur : ([...liveIds][0] ?? null)));
+      return next;
     });
   }, []);
+
+  const setActiveSession = useCallback((sessionId: string) => setActiveSessionId(sessionId), []);
+
+  const reportStatus = useCallback((sessionId: string, state: SshState) => {
+    setStatuses((prev) => (prev[sessionId] === state ? prev : { ...prev, [sessionId]: state }));
+  }, []);
+
+  const registerControls = useCallback((sessionId: string, controls: SessionControls) => {
+    controlsRef.current.set(sessionId, controls);
+  }, []);
+
+  const unregisterControls = useCallback((sessionId: string) => {
+    controlsRef.current.delete(sessionId);
+  }, []);
+
+  const getControls = useCallback((sessionId: string) => controlsRef.current.get(sessionId), []);
 
   return (
     <WorkspaceContext.Provider
       value={{
-        panes,
-        mosaicTree,
-        activePaneId,
-        setMosaicTree,
-        setActivePane,
+        tree,
+        sessions,
+        statuses,
+        activeSessionId,
         addSession,
-        splitPane,
-        closePane,
-        removeSession,
+        changeTree,
+        closeSession,
         setActiveSession,
+        reportStatus,
+        registerControls,
+        unregisterControls,
+        getControls,
       }}
     >
       {children}

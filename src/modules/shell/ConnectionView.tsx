@@ -1,13 +1,13 @@
-import { Alert, Badge, Button, Group, Modal, Stack, Text, ActionIcon, Tooltip } from '@mantine/core';
-import { IconAlertTriangle, IconPlug, IconPlugX, IconRefresh, IconEraser } from '@tabler/icons-react';
-import { isTauri } from '@tauri-apps/api/core';
+import { Alert, Button, Group, Modal, Stack, Text } from '@mantine/core';
+import { IconAlertTriangle } from '@tabler/icons-react';
 import { useCallback, useEffect, useRef } from 'react';
 import type { Profile } from '../profiles/types';
 import { useSshSession } from '../ssh/useSshSession';
 import { Terminal, type TerminalHandle } from '../terminal/Terminal';
-import { ProxyWarning } from './ProxyWarning';
+import { useWorkspace } from './WorkspaceProvider';
 
 type Props = {
+  sessionId: string;
   profile: Profile;
   onUpdateHistory?: (patch: {
     lastConnectedAt?: string;
@@ -16,20 +16,13 @@ type Props = {
   }) => void;
 };
 
-function badgeColor(state: string): string {
-  switch (state) {
-    case 'connected': return 'teal';
-    case 'connecting': return 'yellow';
-    case 'error': return 'red';
-    case 'closed': return 'gray';
-    default: return 'gray';
-  }
-}
+const TERMINAL_BG = '#1a1b1e';
 
-export function ConnectionView({ profile, onUpdateHistory }: Props) {
+export function ConnectionView({ sessionId, profile, onUpdateHistory }: Props) {
   const session = useSshSession(profile);
   const termRef = useRef<TerminalHandle>(null);
-  const usesWebProxy = !isTauri();
+  const autoConnectedRef = useRef(false);
+  const { reportStatus, registerControls, unregisterControls } = useWorkspace();
 
   useEffect(() => {
     session.setOutputHandler((bytes) => termRef.current?.write(bytes));
@@ -50,13 +43,6 @@ export function ConnectionView({ profile, onUpdateHistory }: Props) {
     });
   }, [session.setOnError, onUpdateHistory]);
 
-  // Terminal Auto-focus upon connection
-  useEffect(() => {
-    if (session.state === 'connected') {
-      setTimeout(() => termRef.current?.focus(), 50);
-    }
-  }, [session.state]);
-
   const handleConnect = useCallback(() => {
     const dims = termRef.current?.fit() ?? { cols: 80, rows: 24 };
     session.connect(dims.cols, dims.rows);
@@ -67,64 +53,78 @@ export function ConnectionView({ profile, onUpdateHistory }: Props) {
     termRef.current?.focus();
   }, []);
 
+  // Auto-connect once when the session view first mounts.
+  useEffect(() => {
+    if (!autoConnectedRef.current && session.state === 'idle') {
+      autoConnectedRef.current = true;
+      handleConnect();
+    }
+  }, [session.state, handleConnect]);
+
+  // Auto-focus the terminal once the connection comes up.
+  useEffect(() => {
+    if (session.state === 'connected') {
+      const t = setTimeout(() => termRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [session.state]);
+
+  // Surface state + controls to the workspace so the tab can show status and act on it.
+  useEffect(() => {
+    reportStatus(sessionId, session.state);
+  }, [sessionId, session.state, reportStatus]);
+
+  useEffect(() => {
+    registerControls(sessionId, {
+      connect: handleConnect,
+      disconnect: session.disconnect,
+      clear: handleClear,
+    });
+    return () => unregisterControls(sessionId);
+  }, [
+    sessionId,
+    handleConnect,
+    session.disconnect,
+    handleClear,
+    registerControls,
+    unregisterControls,
+  ]);
+
   return (
-    <Stack gap="xs" style={{ height: '100%' }}>
-      <Group justify="space-between" align="center" bg="dark.7" p="xs" style={{ borderRadius: '4px' }}>
-        <Group gap="md">
-          <Badge color={badgeColor(session.state)} variant="dot">{session.state}</Badge>
-          <Text fw={600} size="sm">{profile.name}</Text>
-          <Text c="dimmed" size="xs" ff="monospace">{`${profile.username}@${profile.host}:${profile.port}`}</Text>
-        </Group>
+    <Stack gap={0} style={{ height: '100%', background: TERMINAL_BG }}>
+      {session.error && (
+        <Alert color="red" variant="filled" radius={0} py={4} px="sm">
+          <Text size="xs">{session.error}</Text>
+        </Alert>
+      )}
 
-        <Group gap="xs">
-          <Tooltip label="Clear terminal">
-            <ActionIcon variant="light" color="gray" onClick={handleClear} disabled={session.state !== 'connected'}>
-              <IconEraser size={18} />
-            </ActionIcon>
-          </Tooltip>
-
-          {session.state === 'connected' ? (
-            <Button size="xs" color="red" variant="light" leftSection={<IconPlugX size={14} />} onClick={session.disconnect}>
-              Disconnect
-            </Button>
-          ) : session.state === 'closed' || session.state === 'error' ? (
-            <Button size="xs" leftSection={<IconRefresh size={14} />} onClick={handleConnect}>
-              Reconnect
-            </Button>
-          ) : (
-            <Button
-              size="xs"
-              leftSection={<IconPlug size={14} />}
-              onClick={handleConnect}
-              disabled={session.state === 'connecting'}
-              loading={session.state === 'connecting'}
-            >
-              Connect
-            </Button>
-          )}
-        </Group>
-      </Group>
-
-      {usesWebProxy && <ProxyWarning />}
-
-      {session.error && <Alert color="red" title="Connection Error">{session.error}</Alert>}
-
-      <Modal opened={session.tofu !== null} onClose={() => session.tofu?.reject()} title="Unknown host key" size="md">
+      <Modal
+        opened={session.tofu !== null}
+        onClose={() => session.tofu?.reject()}
+        title="Unknown host key"
+        size="md"
+      >
         {session.tofu && (
           <Stack gap="md">
             <Alert icon={<IconAlertTriangle size={16} />} color="yellow" title="First connection">
               Verify the fingerprint out-of-band before trusting it.
             </Alert>
-            <Text size="sm" ff="monospace">{session.tofu.fingerprint}</Text>
+            <Text size="sm" ff="monospace">
+              {session.tofu.fingerprint}
+            </Text>
             <Group justify="flex-end">
-              <Button variant="default" onClick={session.tofu.reject}>Reject</Button>
-              <Button color="teal" onClick={session.tofu.trust}>Trust &amp; Connect</Button>
+              <Button variant="default" onClick={session.tofu.reject}>
+                Reject
+              </Button>
+              <Button color="teal" onClick={session.tofu.trust}>
+                Trust &amp; Connect
+              </Button>
             </Group>
           </Stack>
         )}
       </Modal>
 
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, padding: 8, background: TERMINAL_BG }}>
         <Terminal ref={termRef} onData={session.send} onResize={session.resize} />
       </div>
     </Stack>
