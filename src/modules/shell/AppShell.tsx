@@ -1,9 +1,8 @@
-import { AppShell as MantineAppShell, ActionIcon, Group, Title, Tooltip } from '@mantine/core';
+import { AppShell as MantineAppShell, ActionIcon, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
-  IconTerminal2,
 } from '@tabler/icons-react';
 import { ReactNode } from 'react';
 
@@ -32,9 +31,12 @@ export function AppShell({ navbar, footer, children }: Props) {
             borderBottom: '1px solid var(--mantine-color-dark-4)',
           }}
         >
-          <Group gap={8} wrap="nowrap">
-            <IconTerminal2 size={20} color="var(--mantine-color-teal-4)" />
-            <Title order={5}>ssh-buddy</Title>
+          <Group gap={9} wrap="nowrap">
+            <img src="/logo.svg" alt="" width={26} height={26} style={{ display: 'block', borderRadius: 6 }} />
+            <Stack gap={0}>
+              <Title order={5} lh={1.05}>ssh-buddy</Title>
+              <Text size="10px" c="dimmed" lh={1}>v{__APP_VERSION__}</Text>
+            </Stack>
           </Group>
           <Tooltip label="Collapse sidebar" openDelay={400}>
             <ActionIcon variant="subtle" color="gray" onClick={toggle} aria-label="Collapse sidebar">
