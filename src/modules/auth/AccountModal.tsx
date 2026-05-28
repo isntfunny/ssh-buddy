@@ -1,4 +1,4 @@
-import { Button, Divider, Modal, Stack, Text } from '@mantine/core';
+import { Button, Divider, Modal, Stack, Switch, Text } from '@mantine/core';
 import type { PbUser } from '../sync/pb';
 
 type Props = {
@@ -8,6 +8,8 @@ type Props = {
   syncStatus: 'idle' | 'syncing' | 'error';
   lastSyncedAt: Date | null;
   biometricAvailable: boolean;
+  syncConnectionHistory: boolean;
+  onToggleSyncHistory: (value: boolean) => void;
   onRememberDevice: () => Promise<void>;
   onSignOut: () => Promise<void>;
   onExport: () => void;
@@ -21,6 +23,8 @@ export function AccountModal({
   syncStatus,
   lastSyncedAt,
   biometricAvailable,
+  syncConnectionHistory,
+  onToggleSyncHistory,
   onRememberDevice,
   onSignOut,
   onExport,
@@ -38,6 +42,11 @@ export function AccountModal({
         <Text size="sm">{user.email}</Text>
         <Text size="xs" c={syncStatus === 'error' ? 'red' : 'dimmed'}>{statusLabel}</Text>
         <Divider label="Mehr" labelPosition="center" my="xs" />
+        <Switch
+          label="Verbindungs-Historie zwischen Geräten synchronisieren"
+          checked={syncConnectionHistory}
+          onChange={(e) => onToggleSyncHistory(e.currentTarget.checked)}
+        />
         {biometricAvailable && (
           <Button variant="subtle" size="xs" onClick={onRememberDevice}>
             Dieses Gerät merken
