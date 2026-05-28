@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Box, Button, Group, Modal, Stack, Text } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { AppShell } from './modules/shell/AppShell';
 import { ProfileForm } from './modules/profiles/ProfileForm';
@@ -22,6 +23,16 @@ function InnerApp() {
   const { state, key, user, biometricAvailable, signUp, signIn, unlock, unlockBiometric, rememberKey, signOut } = useAuth();
   const { status: syncStatus, lastSyncedAt } = useSync(key, reload);
   const updater = useUpdater();
+
+  // Sidebar: a pushing panel on desktop (open by default), an overlay drawer on
+  // mobile (closed by default, auto-closes when a session opens so the terminal shows).
+  const [mobileNavOpened, mobileNav] = useDisclosure(false);
+  const [desktopNavOpened, desktopNav] = useDisclosure(true);
+
+  const handleConnect = (profileId: string) => {
+    addSession(profileId);
+    mobileNav.close();
+  };
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -124,6 +135,10 @@ function InnerApp() {
 
       <AppShell
         footer={footer}
+        mobileOpened={mobileNavOpened}
+        desktopOpened={desktopNavOpened}
+        onToggleMobile={mobileNav.toggle}
+        onToggleDesktop={desktopNav.toggle}
         navbar={
           loading ? (
             <Text c="dimmed">Loading…</Text>
@@ -132,7 +147,7 @@ function InnerApp() {
           ) : (
             <ProfileSidebar
               profiles={profiles}
-              onConnect={addSession}
+              onConnect={handleConnect}
               onAdd={() => { setEditingId(null); setEditorOpen(true); }}
               onEdit={(id) => { setEditingId(id); setEditorOpen(true); }}
               onDelete={async (id) => { await remove(id); notifications.show({ message: 'Profile deleted' }); }}
