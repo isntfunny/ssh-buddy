@@ -1,129 +1,121 @@
-/* Dark theme for react-mosaic (replaces the light blueprint theme). Scoped to .ssh-mosaic. */
+/* Dockview theming — scoped to .ssh-dockview. Blends the IDE docking layout into the
+   Mantine dark theme and reshapes the tab strip into browser-style tabs. */
 
-.ssh-mosaic.mosaic {
-  background: transparent;
+.ssh-dockview {
+  height: 100%;
+  width: 100%;
+
+  /* Surfaces */
+  --dv-group-view-background-color: #1a1b1e; /* terminal bg, seamless with the pane */
+  --dv-tabs-and-actions-container-background-color: var(--mantine-color-dark-8);
+  --dv-tabs-and-actions-container-height: 38px;
+  --dv-separator-border: var(--mantine-color-dark-4);
+  --dv-paneview-active-outline-color: var(--mantine-primary-color-filled);
+
+  /* Active tab connects visually to the terminal below it */
+  --dv-activegroup-visiblepanel-tab-background-color: #1a1b1e;
+  --dv-activegroup-visiblepanel-tab-color: var(--mantine-color-gray-1);
+  --dv-inactivegroup-visiblepanel-tab-background-color: #1a1b1e;
+  --dv-inactivegroup-visiblepanel-tab-color: var(--mantine-color-gray-4);
+
+  /* Hidden (background) tabs sit on the strip background */
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--mantine-color-dark-8);
+  --dv-activegroup-hiddenpanel-tab-color: var(--mantine-color-gray-5);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--mantine-color-dark-8);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--mantine-color-gray-6);
+
+  /* Resize sashes */
+  --dv-separator-border: var(--mantine-color-dark-4);
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: var(--mantine-primary-color-filled);
+
+  /* Drag & drop overlay */
+  --dv-drag-over-background-color: rgba(18, 184, 134, 0.18);
+  --dv-drag-over-border-color: var(--mantine-primary-color-filled);
+
+  --dv-icon-hover-background-color: var(--mantine-color-dark-5);
 }
 
-.ssh-mosaic .mosaic-tile {
-  margin: 4px;
-}
-
-/* Resize handles between tiles */
-.ssh-mosaic .mosaic-split {
-  background: transparent;
-}
-.ssh-mosaic .mosaic-split .mosaic-split-line {
-  background: var(--mantine-color-dark-4);
-  transition: background 0.1s ease;
-}
-.ssh-mosaic .mosaic-split:hover {
-  background: transparent;
-}
-.ssh-mosaic .mosaic-split:hover .mosaic-split-line {
-  background: var(--mantine-color-blue-6);
-}
-
-/* Tab group container */
-.ssh-mosaic .mosaic-tabs-container {
-  background: var(--mantine-color-dark-7);
-  border: 1px solid var(--mantine-color-dark-4);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.ssh-mosaic .mosaic-tab-bar {
-  background: var(--mantine-color-dark-8);
-  padding: 4px 6px;
+/* Tab strip: a little breathing room, gap between browser tabs */
+.ssh-dockview .dv-tabs-and-actions-container {
+  padding: 6px 6px 0;
+  align-items: flex-end;
   border-bottom: 1px solid var(--mantine-color-dark-4);
-  min-height: 36px;
+}
+.ssh-dockview .dv-tabs-container {
+  gap: 4px;
 }
 
-/* Individual tabs (react-mosaic default draggable button) */
-.ssh-mosaic .mosaic-tab-button {
-  padding: 3px 6px;
-  border-radius: 6px;
-  color: var(--mantine-color-gray-5);
-  transition: background 0.1s ease, color 0.1s ease;
+/* dockview tab shell — we render our own content inside via SessionTab */
+.ssh-dockview .dv-tab {
+  padding: 0;
+  margin: 0;
+  border-radius: 8px 8px 0 0;
+  overflow: visible;
 }
-/* Never let a drag-grab on a tab turn into a text selection. */
-.ssh-mosaic .mosaic-tab-bar-tabs,
-.ssh-mosaic .mosaic-tab-button,
-.ssh-mosaic .mosaic-tab-button * {
+.ssh-dockview .dv-tab.dv-inactive-tab {
+  opacity: 0.85;
+}
+.ssh-dockview .dv-tab.dv-inactive-tab:hover {
+  opacity: 1;
+}
+
+/* Browser-style tab content */
+.ssh-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  max-width: 220px;
+  padding: 0 8px 0 10px;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  position: relative;
   user-select: none;
   -webkit-user-select: none;
+  box-sizing: border-box;
 }
-.ssh-mosaic .mosaic-tab-button:hover {
-  background: var(--mantine-color-dark-6);
+/* Profile colour accent along the top edge of the tab */
+.ssh-tab::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ssh-tab-accent, transparent);
+  opacity: 0.9;
 }
-.ssh-mosaic .mosaic-tab-button.-active {
+.ssh-tab[data-active] {
+  border-color: var(--mantine-color-dark-4);
+}
+.ssh-tab__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ssh-tab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  color: var(--mantine-color-gray-4);
+  opacity: 0.55;
+  flex: 0 0 auto;
+  cursor: pointer;
+  transition: background 0.1s ease, opacity 0.1s ease;
+}
+.ssh-tab__close:hover {
+  opacity: 1;
   background: var(--mantine-color-dark-5);
   color: var(--mantine-color-gray-1);
 }
-.ssh-mosaic .mosaic-tab-button.-dragging {
-  opacity: 0.4;
-}
 
-/* Close button — Blueprint icon glyph is absent without Blueprint CSS, so draw an x */
-.ssh-mosaic .mosaic-tab-close-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  margin-left: 4px;
-  opacity: 0.6;
-}
-.ssh-mosaic .mosaic-tab-close-button::after {
-  content: '\00D7';
-  font-size: 14px;
-  line-height: 1;
-  color: var(--mantine-color-gray-3);
-}
-.ssh-mosaic .mosaic-tab-close-button:hover {
-  opacity: 1;
-  background: var(--mantine-color-dark-4);
-}
-.ssh-mosaic .mosaic-tab-close-button.-cannot-close {
+/* Hide dockview's built-in close glyph — SessionTab provides its own */
+.ssh-dockview .dv-default-tab-action {
   display: none;
-}
-
-/* Toolbar controls (split) — compact icon look */
-.ssh-mosaic .mosaic-tab-bar-controls .mosaic-default-control,
-.ssh-mosaic .mosaic-tab-toolbar-controls .mosaic-default-control {
-  color: var(--mantine-color-gray-5);
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  width: 26px;
-  height: 26px;
-  font-size: 0;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.ssh-mosaic .mosaic-tab-bar-controls .mosaic-default-control:hover,
-.ssh-mosaic .mosaic-tab-toolbar-controls .mosaic-default-control:hover {
-  background: var(--mantine-color-dark-5);
-  color: var(--mantine-color-gray-2);
-}
-.ssh-mosaic .mosaic-default-control.split-button:before {
-  content: '\229F'; /* squared minus — split glyph */
-  font-size: 16px;
-}
-.ssh-mosaic .mosaic-default-control.replace-button,
-.ssh-mosaic .mosaic-default-control.expand-button,
-.ssh-mosaic .mosaic-tab-toolbar-controls .close-button,
-.ssh-mosaic .mosaic-tab-add-button {
-  display: none;
-}
-
-/* Drop-target highlight while dragging tabs/tiles */
-.ssh-mosaic .drop-target {
-  background: rgba(34, 139, 230, 0.18);
-  border: 1px solid var(--mantine-color-blue-6);
-}
-.ssh-mosaic .tab-drop-target.-active,
-.ssh-mosaic .tab-drop-target:hover {
-  background: rgba(34, 139, 230, 0.25);
 }

@@ -1,18 +1,20 @@
-import { MosaicWithoutDragDropContext } from 'react-mosaic-component';
-import 'react-mosaic-component/react-mosaic-component.css';
+import {
+  DockviewReact,
+  type DockviewReadyEvent,
+  type IDockviewPanelProps,
+  type IWatermarkPanelProps,
+} from 'dockview-react';
+import 'dockview-react/dist/styles/dockview.css';
 import './workspace.css';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Center, Stack, Text } from '@mantine/core';
+import { InPortal, OutPortal } from 'react-reverse-portal';
+import { Center, Text } from '@mantine/core';
 import { isTauri } from '@tauri-apps/api/core';
-import { useRef } from 'react';
-import { createHtmlPortalNode, InPortal, OutPortal, type HtmlPortalNode } from 'react-reverse-portal';
 import type { Profile } from '../profiles/types';
 import { useWorkspace } from './WorkspaceProvider';
+import { ProfilesContext } from './profilesContext';
 import { ConnectionView } from './ConnectionView';
 import { ProxyWarning } from './ProxyWarning';
-import { SessionTabTitle, StandaloneHeader } from './SessionTab';
-import { collectLeaves, isInTabsNode } from './mosaicTree';
+import { SessionTab } from './SessionTab';
 
 type HistoryPatch = {
   lastConnectedAt?: string;
@@ -25,79 +27,48 @@ type Props = {
   onUpdateHistory: (profileId: string, patch: HistoryPatch) => void;
 };
 
+type SessionParams = { sessionId: string };
+
 /**
- * Each session's ConnectionView (SSH session + xterm) is rendered exactly once,
- * into a stable detached DOM node (react-reverse-portal InPortal). The mosaic tile
- * only renders an OutPortal that *moves* that live node into place. Because the
- * ConnectionView never unmounts while its session exists, tab switches, closing a
- * sibling tab (group->leaf collapse), splitting, and dragging between panes all
- * preserve the connection + scrollback — react-mosaic restructuring the tree no
- * longer touches the terminal's React subtree.
+ * The panel body just hoists the session's live, keep-alive node into place via
+ * react-reverse-portal. The actual ConnectionView (SSH + xterm) is mounted once in
+ * the pool below and never unmounts while the session exists, so dragging a tab to a
+ * new pane, switching tabs, or closing a sibling never touches the terminal subtree.
  */
+function SessionPanel(props: IDockviewPanelProps<SessionParams>) {
+  const { getPortalNode } = useWorkspace();
+  return <OutPortal node={getPortalNode(props.params.sessionId)} />;
+}
+
+function EmptyWatermark(_props: IWatermarkPanelProps) {
+  return (
+    <Center h="100%">
+      <Text c="dimmed" size="sm">
+        Select a profile from the sidebar to open a connection.
+      </Text>
+    </Center>
+  );
+}
+
+const components = { session: SessionPanel };
+const tabComponents = { session: SessionTab };
+
 export function Workspace({ profiles, onUpdateHistory }: Props) {
-  const { tree, changeTree, sessions, activeSessionId, setActiveSession, createSession } =
-    useWorkspace();
+  const { sessions, activeSessionId, setApi, getPortalNode } = useWorkspace();
   const usesWebProxy = !isTauri();
-  const multiple = collectLeaves(tree).length > 1;
-
-  // Stable portal node per session, created lazily and dropped when the session ends.
-  const portalNodes = useRef<Map<string, HtmlPortalNode>>(new Map());
   const sessionIds = Object.keys(sessions);
-  for (const id of sessionIds) {
-    if (!portalNodes.current.has(id)) {
-      portalNodes.current.set(
-        id,
-        createHtmlPortalNode({ attributes: { style: 'width:100%;height:100%;' } }),
-      );
-    }
-  }
-  for (const id of [...portalNodes.current.keys()]) {
-    if (!sessions[id]) portalNodes.current.delete(id);
-  }
 
-  const renderTile = (activeKey: string) => {
-    const node = portalNodes.current.get(activeKey);
-    if (!node) return <div style={{ height: '100%', background: 'var(--mantine-color-dark-7)' }} />;
-
-    const standalone = !isInTabsNode(tree, activeKey);
-    const isActiveTile = activeSessionId === activeKey;
-    const outline =
-      multiple && isActiveTile ? '2px solid var(--mantine-primary-color-filled)' : 'none';
-
-    return (
-      <div
-        onMouseDownCapture={() => setActiveSession(activeKey)}
-        style={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
-          background: 'var(--mantine-color-dark-7)',
-          borderRadius: standalone ? 8 : 0,
-          border: standalone ? '1px solid var(--mantine-color-dark-4)' : 'none',
-          overflow: 'hidden',
-          outline,
-          outlineOffset: -2,
-        }}
-      >
-        {standalone && <StandaloneHeader sessionId={activeKey} profiles={profiles} />}
-        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-          <OutPortal node={node} />
-        </div>
-      </div>
-    );
-  };
+  const onReady = (event: DockviewReadyEvent) => setApi(event.api);
 
   return (
-    <Stack gap="sm" h="100%">
-      {/* Keep-alive pool: every live session rendered once into its detached node. */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* Keep-alive pool: each session's ConnectionView is mounted exactly once into a
+          detached node and stays alive for the session's whole lifetime. */}
       {sessionIds.map((id) => {
-        const node = portalNodes.current.get(id);
-        const meta = sessions[id];
-        const profile = meta ? profiles.find((p) => p.id === meta.profileId) : undefined;
-        if (!node || !profile) return null;
+        const profile = profiles.find((p) => p.id === sessions[id]?.profileId);
+        if (!profile) return null;
         return (
-          <InPortal key={id} node={node}>
+          <InPortal key={id} node={getPortalNode(id)}>
             <ConnectionView
               sessionId={id}
               profile={profile}
@@ -110,35 +81,19 @@ export function Workspace({ profiles, onUpdateHistory }: Props) {
 
       {usesWebProxy && <ProxyWarning />}
 
-      {tree ? (
+      <ProfilesContext.Provider value={profiles}>
         <div style={{ flex: 1, minHeight: 0 }}>
-          <DndProvider backend={HTML5Backend}>
-            <MosaicWithoutDragDropContext<string>
-              className="ssh-mosaic"
-              value={tree}
-              onChange={changeTree}
-              createNode={() => {
-                // Split / add-tab duplicates the focused session's profile.
-                const sourceId =
-                  activeSessionId && sessions[activeSessionId] ? activeSessionId : sessionIds[0];
-                const profileId = sourceId ? sessions[sourceId]?.profileId : profiles[0]?.id;
-                if (!profileId) throw new Error('No profile available to open a session');
-                return createSession(profileId);
-              }}
-              renderTile={renderTile}
-              renderTabTitle={({ tabKey, isActive }) => (
-                <SessionTabTitle sessionId={tabKey} isActive={isActive} profiles={profiles} />
-              )}
-              canClose={() => 'canClose' as const}
-              zeroStateView={<div />}
-            />
-          </DndProvider>
+          <DockviewReact
+            className="ssh-dockview dockview-theme-dark"
+            components={components}
+            tabComponents={tabComponents}
+            watermarkComponent={EmptyWatermark}
+            onReady={onReady}
+            singleTabMode="default"
+            disableFloatingGroups
+          />
         </div>
-      ) : (
-        <Center style={{ flex: 1 }}>
-          <Text c="dimmed">Select a profile from the sidebar to open a connection.</Text>
-        </Center>
-      )}
-    </Stack>
+      </ProfilesContext.Provider>
+    </div>
   );
 }

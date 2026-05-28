@@ -1,9 +1,10 @@
-import { ActionIcon, Box, Group, Menu, Text } from '@mantine/core';
+import { Box, Menu, Text } from '@mantine/core';
 import { IconEraser, IconPlug, IconPlugX, IconX } from '@tabler/icons-react';
-import { useState, type ReactNode } from 'react';
-import type { Profile } from '../profiles/types';
+import { useEffect, useState, type ReactNode } from 'react';
+import type { IDockviewPanelHeaderProps } from 'dockview-react';
 import type { SshState } from '../ssh/useSshSession';
 import { useWorkspace } from './WorkspaceProvider';
+import { useProfiles } from './profilesContext';
 
 export function statusColor(state: SshState | undefined): string {
   switch (state) {
@@ -34,7 +35,7 @@ function StatusDot({ state }: { state: SshState | undefined }) {
   );
 }
 
-/** Shared right-click action menu for a session (tab title or standalone header). */
+/** Right-click action menu shared by every session tab. */
 function SessionMenu({
   sessionId,
   opened,
@@ -76,11 +77,7 @@ function SessionMenu({
           Clear terminal
         </Menu.Item>
         <Menu.Divider />
-        <Menu.Item
-          color="red"
-          leftSection={<IconX size={14} />}
-          onClick={() => closeSession(sessionId)}
-        >
+        <Menu.Item color="red" leftSection={<IconX size={14} />} onClick={() => closeSession(sessionId)}>
           Close session
         </Menu.Item>
       </Menu.Dropdown>
@@ -89,103 +86,54 @@ function SessionMenu({
 }
 
 /**
- * Tab title content rendered inside react-mosaic's default (draggable) tab button.
- * Using renderTabTitle — not renderTabButton — keeps the native drag source + close X.
+ * Browser-style tab rendered by dockview for each session. dockview owns the drag
+ * source + active state; we render the label, a status dot, the profile colour
+ * accent and a close button, and keep the right-click action menu.
  */
-export function SessionTabTitle({
-  sessionId,
-  isActive,
-  profiles,
-}: {
-  sessionId: string;
-  isActive: boolean;
-  profiles: Profile[];
-}) {
-  const { sessions, statuses, setActiveSession } = useWorkspace();
+export function SessionTab(props: IDockviewPanelHeaderProps<{ sessionId: string }>) {
+  const sessionId = props.params.sessionId;
+  const { sessions, statuses } = useWorkspace();
+  const profiles = useProfiles();
   const [menuOpened, setMenuOpened] = useState(false);
+  const [active, setActive] = useState(props.api.isActive);
+
+  useEffect(() => {
+    const d = props.api.onDidActiveChange((e) => setActive(e.isActive));
+    return () => d.dispose();
+  }, [props.api]);
+
   const profile = profiles.find((p) => p.id === sessions[sessionId]?.profileId);
   const state = statuses[sessionId];
 
   return (
     <SessionMenu sessionId={sessionId} opened={menuOpened} onOpenChange={setMenuOpened}>
       <Box
-        component="span"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          paddingLeft: 6,
-          borderLeft: `3px solid ${profile?.color ?? 'transparent'}`,
-        }}
-        onClick={() => setActiveSession(sessionId)}
+        className="ssh-tab"
+        data-active={active || undefined}
         onContextMenu={(e) => {
           e.preventDefault();
           setMenuOpened(true);
         }}
+        style={{ '--ssh-tab-accent': profile?.color ?? 'transparent' } as React.CSSProperties}
       >
         <StatusDot state={state} />
-        <Text component="span" size="xs" fw={isActive ? 600 : 400} truncate style={{ maxWidth: 160 }}>
+        <Text component="span" className="ssh-tab__label" size="xs" fw={active ? 600 : 400}>
           {profile?.name ?? 'Unknown'}
         </Text>
-      </Box>
-    </SessionMenu>
-  );
-}
-
-/** Header bar for a standalone session (one not inside a tabs group). */
-export function StandaloneHeader({
-  sessionId,
-  profiles,
-}: {
-  sessionId: string;
-  profiles: Profile[];
-}) {
-  const { sessions, statuses, closeSession } = useWorkspace();
-  const [menuOpened, setMenuOpened] = useState(false);
-  const profile = profiles.find((p) => p.id === sessions[sessionId]?.profileId);
-  const state = statuses[sessionId];
-
-  return (
-    <Group
-      justify="space-between"
-      wrap="nowrap"
-      px="xs"
-      style={{
-        height: 36,
-        background: 'var(--mantine-color-dark-8)',
-        borderBottom: '1px solid var(--mantine-color-dark-4)',
-        flex: '0 0 auto',
-      }}
-    >
-      <SessionMenu sessionId={sessionId} opened={menuOpened} onOpenChange={setMenuOpened}>
-        <Group
-          gap={6}
-          wrap="nowrap"
-          style={{
-            cursor: 'context-menu',
-            paddingLeft: 6,
-            borderLeft: `3px solid ${profile?.color ?? 'transparent'}`,
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setMenuOpened(true);
+        <Box
+          component="span"
+          className="ssh-tab__close"
+          role="button"
+          aria-label="Close session"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            props.api.close();
           }}
         >
-          <StatusDot state={state} />
-          <Text size="xs" fw={600} c="gray.2" truncate style={{ maxWidth: 220 }}>
-            {profile?.name ?? 'Unknown'}
-          </Text>
-        </Group>
-      </SessionMenu>
-      <ActionIcon
-        size="xs"
-        variant="subtle"
-        color="gray"
-        aria-label="Close session"
-        onClick={() => closeSession(sessionId)}
-      >
-        <IconX size={12} />
-      </ActionIcon>
-    </Group>
+          <IconX size={12} />
+        </Box>
+      </Box>
+    </SessionMenu>
   );
 }

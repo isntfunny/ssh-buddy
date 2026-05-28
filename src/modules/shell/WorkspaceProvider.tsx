@@ -6,10 +6,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { MosaicNode } from 'react-mosaic-component';
 import { v4 as uuidv4 } from 'uuid';
+import { createHtmlPortalNode, type HtmlPortalNode } from 'react-reverse-portal';
+import type { DockviewApi } from 'dockview-react';
 import type { SshState } from '../ssh/useSshSession';
-import { collectLeaves, insertSession, removeLeaf } from './mosaicTree';
 
 export type SessionMeta = {
   profileId: string;
@@ -23,93 +23,107 @@ export type SessionControls = {
 };
 
 type WorkspaceContextType = {
-  tree: MosaicNode<string> | null;
   sessions: Record<string, SessionMeta>;
   statuses: Record<string, SshState>;
   activeSessionId: string | null;
   addSession: (profileId: string) => void;
-  createSession: (profileId: string) => string;
-  changeTree: (tree: MosaicNode<string> | null) => void;
   closeSession: (sessionId: string) => void;
   setActiveSession: (sessionId: string) => void;
   reportStatus: (sessionId: string, state: SshState) => void;
   registerControls: (sessionId: string, controls: SessionControls) => void;
   unregisterControls: (sessionId: string) => void;
   getControls: (sessionId: string) => SessionControls | undefined;
+  /** Wire the dockview api once the layout is ready. */
+  setApi: (api: DockviewApi) => void;
+  /** Stable detached DOM node per session; backs the keep-alive portal. */
+  getPortalNode: (sessionId: string) => HtmlPortalNode;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextType | null>(null);
 
+function pruneRecord<T>(record: Record<string, T>, live: Set<string>): Record<string, T> {
+  const next: Record<string, T> = {};
+  let changed = false;
+  for (const id of Object.keys(record)) {
+    if (live.has(id)) next[id] = record[id];
+    else changed = true;
+  }
+  return changed ? next : record;
+}
+
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const [tree, setTree] = useState<MosaicNode<string> | null>(null);
   const [sessions, setSessions] = useState<Record<string, SessionMeta>>({});
   const [statuses, setStatuses] = useState<Record<string, SshState>>({});
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
+  const apiRef = useRef<DockviewApi | null>(null);
   const controlsRef = useRef<Map<string, SessionControls>>(new Map());
+  const portalNodes = useRef<Map<string, HtmlPortalNode>>(new Map());
+  const reconcileTimer = useRef<number | null>(null);
+
+  const getPortalNode = useCallback((sessionId: string) => {
+    let node = portalNodes.current.get(sessionId);
+    if (!node) {
+      node = createHtmlPortalNode({ attributes: { style: 'width:100%;height:100%;' } });
+      portalNodes.current.set(sessionId, node);
+    }
+    return node;
+  }, []);
+
+  // dockview fires onDidRemovePanel during drags too (remove + re-add), so we never
+  // prune on the raw event. Instead we reconcile against the settled panel set on the
+  // next tick: a moved panel is back in api.panels by then, a closed one is gone.
+  const queueReconcile = useCallback(() => {
+    if (reconcileTimer.current != null) return;
+    reconcileTimer.current = window.setTimeout(() => {
+      reconcileTimer.current = null;
+      const api = apiRef.current;
+      if (!api) return;
+      const live = new Set(api.panels.map((p) => p.id));
+      setSessions((prev) => pruneRecord(prev, live));
+      setStatuses((prev) => pruneRecord(prev, live));
+      for (const id of [...controlsRef.current.keys()]) {
+        if (!live.has(id)) controlsRef.current.delete(id);
+      }
+      for (const id of [...portalNodes.current.keys()]) {
+        if (!live.has(id)) portalNodes.current.delete(id);
+      }
+    }, 0);
+  }, []);
+
+  const setApi = useCallback(
+    (api: DockviewApi) => {
+      apiRef.current = api;
+      api.onDidActivePanelChange((panel) => setActiveSessionId(panel?.id ?? null));
+      api.onDidRemovePanel(() => queueReconcile());
+    },
+    [queueReconcile],
+  );
 
   const addSession = useCallback(
     (profileId: string) => {
+      const api = apiRef.current;
+      if (!api) return;
       const sessionId = uuidv4();
       setSessions((prev) => ({ ...prev, [sessionId]: { profileId } }));
-      setTree((prev) => insertSession(prev, activeSessionId, sessionId));
-      setActiveSessionId(sessionId);
+      getPortalNode(sessionId); // create the keep-alive node before the panel mounts
+      api.addPanel({
+        id: sessionId,
+        component: 'session',
+        tabComponent: 'session',
+        params: { sessionId },
+      });
     },
-    [activeSessionId],
+    [getPortalNode],
   );
 
-  // Register a session WITHOUT touching the tree — used by mosaic's createNode
-  // (split / add-tab), which inserts the returned id into the tree itself.
-  const createSession = useCallback((profileId: string) => {
-    const sessionId = uuidv4();
-    setSessions((prev) => ({ ...prev, [sessionId]: { profileId } }));
-    setActiveSessionId(sessionId);
-    return sessionId;
-  }, []);
-
-  // Single funnel for every tree mutation (mosaic drag/resize/close + our closeSession).
-  // Prunes session metadata + statuses for leaves that no longer exist.
-  const changeTree = useCallback((next: MosaicNode<string> | null) => {
-    const liveIds = new Set(collectLeaves(next));
-    setTree(next);
-    setSessions((prev) => {
-      const pruned: Record<string, SessionMeta> = {};
-      for (const id of Object.keys(prev)) if (liveIds.has(id)) pruned[id] = prev[id];
-      return pruned;
-    });
-    setStatuses((prev) => {
-      const pruned: Record<string, SshState> = {};
-      for (const id of Object.keys(prev)) if (liveIds.has(id)) pruned[id] = prev[id];
-      return pruned;
-    });
-    for (const id of controlsRef.current.keys()) {
-      if (!liveIds.has(id)) controlsRef.current.delete(id);
-    }
-    setActiveSessionId((cur) => (cur && liveIds.has(cur) ? cur : ([...liveIds][0] ?? null)));
-  }, []);
-
   const closeSession = useCallback((sessionId: string) => {
-    setTree((prevTree) => {
-      const next = removeLeaf(prevTree, sessionId);
-      const liveIds = new Set(collectLeaves(next));
-      setSessions((prev) => {
-        const pruned: Record<string, SessionMeta> = {};
-        for (const id of Object.keys(prev)) if (liveIds.has(id)) pruned[id] = prev[id];
-        return pruned;
-      });
-      setStatuses((prev) => {
-        const pruned: Record<string, SshState> = {};
-        for (const id of Object.keys(prev)) if (liveIds.has(id)) pruned[id] = prev[id];
-        return pruned;
-      });
-      for (const id of controlsRef.current.keys()) {
-        if (!liveIds.has(id)) controlsRef.current.delete(id);
-      }
-      setActiveSessionId((cur) => (cur && liveIds.has(cur) ? cur : ([...liveIds][0] ?? null)));
-      return next;
-    });
+    apiRef.current?.getPanel(sessionId)?.api.close();
   }, []);
 
-  const setActiveSession = useCallback((sessionId: string) => setActiveSessionId(sessionId), []);
+  const setActiveSession = useCallback((sessionId: string) => {
+    apiRef.current?.getPanel(sessionId)?.api.setActive();
+  }, []);
 
   const reportStatus = useCallback((sessionId: string, state: SshState) => {
     setStatuses((prev) => (prev[sessionId] === state ? prev : { ...prev, [sessionId]: state }));
@@ -128,19 +142,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   return (
     <WorkspaceContext.Provider
       value={{
-        tree,
         sessions,
         statuses,
         activeSessionId,
         addSession,
-        createSession,
-        changeTree,
         closeSession,
         setActiveSession,
         reportStatus,
         registerControls,
         unregisterControls,
         getControls,
+        setApi,
+        getPortalNode,
       }}
     >
       {children}

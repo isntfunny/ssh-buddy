@@ -33,7 +33,13 @@ export function ConnectionView({ sessionId, profile, active, onUpdateHistory }: 
   const termRef = useRef<TerminalHandle>(null);
   const autoConnectedRef = useRef(false);
   const logStateRef = useRef<SshState | null>(null);
-  const { reportStatus, registerControls, unregisterControls } = useWorkspace();
+  const { reportStatus, registerControls, unregisterControls, closeSession } = useWorkspace();
+
+  // Close the tab when the remote side ends the session (e.g. the user typed `exit`).
+  // Manual disconnect does not trigger this, so disconnected tabs stay open to reconnect.
+  useEffect(() => {
+    session.setOnClosed(() => closeSession(sessionId));
+  }, [session.setOnClosed, closeSession, sessionId]);
 
   useEffect(() => {
     session.setOutputHandler((bytes) => termRef.current?.write(bytes));
@@ -171,7 +177,7 @@ export function ConnectionView({ sessionId, profile, active, onUpdateHistory }: 
         )}
       </Modal>
 
-      <div style={{ flex: 1, minHeight: 0, padding: 8, background: TERMINAL_BG }}>
+      <div style={{ flex: 1, minHeight: 0, padding: '4px 6px', background: TERMINAL_BG }}>
         <Terminal ref={termRef} onData={session.send} onResize={session.resize} />
       </div>
     </Stack>

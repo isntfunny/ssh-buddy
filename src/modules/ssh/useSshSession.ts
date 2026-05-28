@@ -25,6 +25,7 @@ export function useSshSession(profile: Profile | null) {
   const unlistenRef = useRef<(() => void)[]>([]);
   const onConnectedRef = useRef<((fingerprint: string) => void) | null>(null);
   const onErrorRef = useRef<((category: string) => void) | null>(null);
+  const onClosedRef = useRef<(() => void) | null>(null);
 
   const cleanupListeners = useCallback(() => {
     for (const unlisten of unlistenRef.current) unlisten();
@@ -58,6 +59,9 @@ export function useSshSession(profile: Profile | null) {
           setTofu(null);
           cleanupListeners();
           sessionIdRef.current = null;
+          // The remote side closed the channel (e.g. the user typed `exit`).
+          // Manual disconnect unlistens first, so this only fires on a real exit.
+          onClosedRef.current?.();
         });
         unlistenRef.current = [unlistenData, unlistenClosed];
         // Both listeners are registered — now it's safe to start the output pump.
@@ -131,6 +135,10 @@ export function useSshSession(profile: Profile | null) {
     onErrorRef.current = cb;
   }, []);
 
+  const setOnClosed = useCallback((cb: () => void) => {
+    onClosedRef.current = cb;
+  }, []);
+
   useEffect(() => {
     return () => {
       cleanupListeners();
@@ -150,6 +158,7 @@ export function useSshSession(profile: Profile | null) {
     setOutputHandler,
     setOnConnected,
     setOnError,
+    setOnClosed,
   };
 }
 
