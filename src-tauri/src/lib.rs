@@ -17,6 +17,11 @@ pub fn run() {
             .plugin(tauri_plugin_process::init());
     }
 
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        builder = builder.plugin(tauri_plugin_biometry::init());
+    }
+
     builder
         .setup(|app| {
             let app_dir = app
@@ -41,6 +46,7 @@ pub fn run() {
             storage::keystore::storage_store_key,
             storage::keystore::storage_load_key,
             storage::keystore::storage_clear_key,
+            commands::app_platform,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

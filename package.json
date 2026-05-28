@@ -21,6 +21,7 @@
   },
   "packageManager": "pnpm@9.0.0",
   "dependencies": {
+    "@choochmeque/tauri-plugin-biometry-api": "^0.2.8",
     "@mantine/core": "^9.2.1",
     "@mantine/form": "^9.2.1",
     "@mantine/hooks": "^9.2.1",
