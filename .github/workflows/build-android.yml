@@ -1,10 +1,9 @@
 name: Build Android
 
+# Manual dev/test build only. Release APKs are built and attached to the GitHub
+# Release by the `android` job in release.yml on tag pushes.
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
 
 jobs:
   build-android:

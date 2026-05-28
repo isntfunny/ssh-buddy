@@ -108,6 +108,8 @@ git push origin vX.Y.Z
 This triggers the **Release** workflow (`.github/workflows/release.yml`), which builds
 signed installers for Windows, macOS (Intel + Apple Silicon), and Linux, then creates
 a **draft** GitHub Release with all artifacts and a `latest.json` update manifest.
+Once the desktop builds finish, an `android` job builds the Android APK and attaches
+it to the same draft release (sideload/install via the APK; debug-signed for now).
 
 ### 3. Publish the release
 
@@ -137,6 +139,6 @@ updates and users must manually reinstall once.
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| `build.yml` | `workflow_dispatch` | Test build (no signing, no release) |
-| `release.yml` | `push: tags: v*` or `workflow_dispatch` | Signed release + GitHub Release + `latest.json` |
-| `build-android.yml` | `push: tags: v*` or `workflow_dispatch` | Android debug APK |
+| `build.yml` | `workflow_dispatch` | Desktop test build (no signing, no release) |
+| `release.yml` | `push: tags: v*` or `workflow_dispatch` | Signed desktop release + GitHub Release + `latest.json`, then attaches the Android APK |
+| `build-android.yml` | `workflow_dispatch` | Manual Android debug APK (dev/test only) |
