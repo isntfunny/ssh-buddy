@@ -1,14 +1,17 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { newId } from '../../lib/id';
-import type { NewProfileInput, Profile, ProfileStoreFile } from './types';
+import { pruneHistory } from './connectionHistory';
+import type { ConnectionEvent, NewProfileInput, Profile, ProfileStoreFile } from './types';
 import { SCHEMA_VERSION } from './types';
 
 export type ProfileStorage = {
   list(): Promise<Profile[]>;
+  listAll(): Promise<Profile[]>;
   create(input: NewProfileInput): Promise<Profile>;
   update(id: string, patch: Partial<NewProfileInput>): Promise<Profile>;
   remove(id: string): Promise<void>;
   upsert(profile: Profile): Promise<void>;
+  appendHistoryEvent(id: string, event: ConnectionEvent): Promise<void>;
 };
 
 function nowIso(): string {
@@ -20,6 +23,9 @@ export function createInMemoryStorage(): ProfileStorage {
 
   return {
     async list() {
+      return profiles.filter((p) => !p.deletedAt);
+    },
+    async listAll() {
       return [...profiles];
     },
     async create(input) {
@@ -45,9 +51,11 @@ export function createInMemoryStorage(): ProfileStorage {
       return updated;
     },
     async remove(id) {
-      const before = profiles.length;
-      profiles = profiles.filter((p) => p.id !== id);
-      if (profiles.length === before) throw new Error(`Profile not found: ${id}`);
+      const idx = profiles.findIndex((p) => p.id === id);
+      if (idx === -1) throw new Error(`Profile not found: ${id}`);
+      const ts = nowIso();
+      const tombstone: Profile = { ...profiles[idx], deletedAt: ts, updatedAt: ts };
+      profiles = profiles.map((p, i) => (i === idx ? tombstone : p));
     },
     async upsert(profile) {
       const idx = profiles.findIndex((p) => p.id === profile.id);
@@ -56,6 +64,12 @@ export function createInMemoryStorage(): ProfileStorage {
       } else {
         profiles = profiles.map((p, i) => (i === idx ? profile : p));
       }
+    },
+    async appendHistoryEvent(id, event) {
+      const idx = profiles.findIndex((p) => p.id === id);
+      if (idx === -1) return;
+      const history = pruneHistory([event, ...(profiles[idx].history ?? [])]);
+      profiles = profiles.map((p, i) => (i === idx ? { ...p, history } : p));
     },
   };
 }
@@ -86,6 +100,10 @@ export function createFileStorage(): ProfileStorage {
   return {
     async list() {
       const data = await readFile();
+      return (data?.profiles ?? []).filter((p) => !p.deletedAt);
+    },
+    async listAll() {
+      const data = await readFile();
       return data?.profiles ?? [];
     },
     async create(input) {
@@ -108,9 +126,10 @@ export function createFileStorage(): ProfileStorage {
     async remove(id) {
       const data = await readFile();
       if (!data) throw new Error(`Profile not found: ${id}`);
-      const before = data.profiles.length;
-      data.profiles = data.profiles.filter((p) => p.id !== id);
-      if (data.profiles.length === before) throw new Error(`Profile not found: ${id}`);
+      const idx = data.profiles.findIndex((p) => p.id === id);
+      if (idx === -1) throw new Error(`Profile not found: ${id}`);
+      const ts = nowIso();
+      data.profiles = data.profiles.map((p, i) => (i === idx ? { ...p, deletedAt: ts, updatedAt: ts } : p));
       await writeFile(data);
     },
     async upsert(profile) {
@@ -121,6 +140,15 @@ export function createFileStorage(): ProfileStorage {
       } else {
         data.profiles = data.profiles.map((p, i) => (i === idx ? profile : p));
       }
+      await writeFile(data);
+    },
+    async appendHistoryEvent(id, event) {
+      const data = await readFile();
+      if (!data) return;
+      const idx = data.profiles.findIndex((p) => p.id === id);
+      if (idx === -1) return;
+      const history = pruneHistory([event, ...(data.profiles[idx].history ?? [])]);
+      data.profiles = data.profiles.map((p, i) => (i === idx ? { ...p, history } : p));
       await writeFile(data);
     },
   };
@@ -144,6 +172,9 @@ function writeBrowserFile(data: ProfileStoreFile): void {
 export function createBrowserStorage(): ProfileStorage {
   return {
     async list() {
+      return readBrowserFile().profiles.filter((p) => !p.deletedAt);
+    },
+    async listAll() {
       return readBrowserFile().profiles;
     },
     async create(input) {
@@ -165,9 +196,10 @@ export function createBrowserStorage(): ProfileStorage {
     },
     async remove(id) {
       const data = readBrowserFile();
-      const before = data.profiles.length;
-      data.profiles = data.profiles.filter((p) => p.id !== id);
-      if (data.profiles.length === before) throw new Error(`Profile not found: ${id}`);
+      const idx = data.profiles.findIndex((p) => p.id === id);
+      if (idx === -1) throw new Error(`Profile not found: ${id}`);
+      const ts = nowIso();
+      data.profiles = data.profiles.map((p, i) => (i === idx ? { ...p, deletedAt: ts, updatedAt: ts } : p));
       writeBrowserFile(data);
     },
     async upsert(profile) {
@@ -178,6 +210,14 @@ export function createBrowserStorage(): ProfileStorage {
       } else {
         data.profiles = data.profiles.map((p, i) => (i === idx ? profile : p));
       }
+      writeBrowserFile(data);
+    },
+    async appendHistoryEvent(id, event) {
+      const data = readBrowserFile();
+      const idx = data.profiles.findIndex((p) => p.id === id);
+      if (idx === -1) return;
+      const history = pruneHistory([event, ...(data.profiles[idx].history ?? [])]);
+      data.profiles = data.profiles.map((p, i) => (i === idx ? { ...p, history } : p));
       writeBrowserFile(data);
     },
   };

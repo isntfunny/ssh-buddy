@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { NewProfileInput } from './types';
 import { createInMemoryStorage } from './storage';
+import { makeEvent } from './connectionHistory';
 
 const baseInput: NewProfileInput = {
   name: 'Test server',
@@ -77,5 +78,27 @@ describe('ProfileStorage (in-memory)', () => {
     expect(created.snippets).toEqual([{ label: 'uptime', command: 'uptime' }]);
     expect(created.envVars).toEqual({ EDITOR: 'vim' });
     expect(created.jumpHostId).toBeNull();
+  });
+});
+
+describe('ProfileStorage tombstones & history (in-memory)', () => {
+  it('remove sets deletedAt and hides from list but keeps in listAll', async () => {
+    const s = createInMemoryStorage();
+    const p = await s.create(baseInput);
+    await s.remove(p.id);
+    expect(await s.list()).toEqual([]);
+    const all = await s.listAll();
+    expect(all).toHaveLength(1);
+    expect(all[0].deletedAt).toBeDefined();
+  });
+
+  it('appendHistoryEvent adds an event without bumping updatedAt', async () => {
+    const s = createInMemoryStorage();
+    const p = await s.create(baseInput);
+    const before = p.updatedAt;
+    await s.appendHistoryEvent(p.id, makeEvent({ outcome: 'connected', deviceId: 'd' }));
+    const all = await s.listAll();
+    expect(all[0].history).toHaveLength(1);
+    expect(all[0].updatedAt).toBe(before);
   });
 });
