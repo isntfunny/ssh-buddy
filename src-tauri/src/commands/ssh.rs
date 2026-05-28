@@ -58,11 +58,15 @@ pub struct OutputEvent {
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ConnectOutcome {
     /// Host key is already trusted.
+    // Enum-level `rename_all` renames the variants only; the per-variant attribute
+    // is what camelCases the fields (session_id -> sessionId) for the frontend.
+    #[serde(rename_all = "camelCase")]
     Connected {
         session_id: String,
         fingerprint: String,
     },
     /// Host key has never been seen — frontend must ask user to trust or reject.
+    #[serde(rename_all = "camelCase")]
     NewHostKey {
         session_id: String,
         fingerprint: String,
