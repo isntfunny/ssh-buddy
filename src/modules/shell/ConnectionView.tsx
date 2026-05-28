@@ -14,21 +14,20 @@ import {
   logHostKey,
 } from '../terminal/connectionLog';
 import { useWorkspace } from './WorkspaceProvider';
+import { getDeviceId } from '../sync/syncEngine';
+import { makeEvent } from '../profiles/connectionHistory';
+import type { ConnectionEvent } from '../profiles/types';
 
 type Props = {
   sessionId: string;
   profile: Profile;
   active: boolean;
-  onUpdateHistory?: (patch: {
-    lastConnectedAt?: string;
-    lastHostKeyFingerprint?: string;
-    lastErrorCategory?: string;
-  }) => void;
+  onAppendHistory?: (profileId: string, event: ConnectionEvent) => void;
 };
 
 const TERMINAL_BG = '#1a1b1e';
 
-export function ConnectionView({ sessionId, profile, active, onUpdateHistory }: Props) {
+export function ConnectionView({ sessionId, profile, active, onAppendHistory }: Props) {
   const session = useSshSession(profile);
   const termRef = useRef<TerminalHandle>(null);
   const autoConnectedRef = useRef(false);
@@ -47,14 +46,11 @@ export function ConnectionView({ sessionId, profile, active, onUpdateHistory }: 
 
   useEffect(() => {
     session.setOnConnected((fingerprint) => {
-      onUpdateHistory?.({
-        lastConnectedAt: new Date().toISOString(),
-        lastHostKeyFingerprint: fingerprint,
-      });
+      onAppendHistory?.(profile.id, makeEvent({ outcome: 'connected', hostKeyFingerprint: fingerprint, deviceId: getDeviceId() }));
       const term = termRef.current;
       if (term) logConnected(term, fingerprint);
     });
-  }, [session.setOnConnected, onUpdateHistory]);
+  }, [session.setOnConnected, onAppendHistory, profile.id]);
 
   // Connection protocol written into the terminal as the state changes.
   useEffect(() => {
@@ -87,9 +83,9 @@ export function ConnectionView({ sessionId, profile, active, onUpdateHistory }: 
 
   useEffect(() => {
     session.setOnError((category) => {
-      onUpdateHistory?.({ lastErrorCategory: category });
+      onAppendHistory?.(profile.id, makeEvent({ outcome: 'error', errorCategory: category, deviceId: getDeviceId() }));
     });
-  }, [session.setOnError, onUpdateHistory]);
+  }, [session.setOnError, onAppendHistory, profile.id]);
 
   const handleConnect = useCallback(() => {
     const dims = termRef.current?.fit() ?? { cols: 80, rows: 24 };

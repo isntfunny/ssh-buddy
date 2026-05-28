@@ -9,22 +9,16 @@ import './workspace.css';
 import { InPortal, OutPortal } from 'react-reverse-portal';
 import { Center, Text } from '@mantine/core';
 import { isTauri } from '@tauri-apps/api/core';
-import type { Profile } from '../profiles/types';
+import type { ConnectionEvent, Profile } from '../profiles/types';
 import { useWorkspace } from './WorkspaceProvider';
 import { ProfilesContext } from './profilesContext';
 import { ConnectionView } from './ConnectionView';
 import { ProxyWarning } from './ProxyWarning';
 import { SessionTab } from './SessionTab';
 
-type HistoryPatch = {
-  lastConnectedAt?: string;
-  lastHostKeyFingerprint?: string;
-  lastErrorCategory?: string;
-};
-
 type Props = {
   profiles: Profile[];
-  onUpdateHistory: (profileId: string, patch: HistoryPatch) => void;
+  onAppendHistory: (profileId: string, event: ConnectionEvent) => void;
 };
 
 type SessionParams = { sessionId: string };
@@ -53,7 +47,7 @@ function EmptyWatermark(_props: IWatermarkPanelProps) {
 const components = { session: SessionPanel };
 const tabComponents = { session: SessionTab };
 
-export function Workspace({ profiles, onUpdateHistory }: Props) {
+export function Workspace({ profiles, onAppendHistory }: Props) {
   const { sessions, activeSessionId, setApi, getPortalNode } = useWorkspace();
   const usesWebProxy = !isTauri();
   const sessionIds = Object.keys(sessions);
@@ -73,7 +67,7 @@ export function Workspace({ profiles, onUpdateHistory }: Props) {
               sessionId={id}
               profile={profile}
               active={id === activeSessionId}
-              onUpdateHistory={(patch) => onUpdateHistory(profile.id, patch)}
+              onAppendHistory={onAppendHistory}
             />
           </InPortal>
         );
