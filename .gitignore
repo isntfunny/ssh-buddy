@@ -16,7 +16,7 @@ out/
 src-tauri/target/
 src-tauri/Cargo.lock
 src-tauri/WixTools/
-src-tauri/gen/schemas/
+src-tauri/gen/
 
 # IDE / editor
 .vscode/
