@@ -18,10 +18,11 @@ jobs:
             args: ''
           - platform: windows-latest
             args: ''
+          # One universal macOS binary (Intel + ARM) built on the plentiful ARM
+          # runner. Avoids the scarce/deprecated macos-13 Intel runner, which
+          # could sit unassigned in the queue indefinitely.
           - platform: macos-latest
-            args: '--target aarch64-apple-darwin'
-          - platform: macos-13
-            args: '--target x86_64-apple-darwin'
+            args: '--target universal-apple-darwin'
 
     runs-on: ${{ matrix.platform }}
     steps:
