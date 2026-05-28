@@ -117,6 +117,11 @@ jobs:
       - name: Initialize Android project
         run: pnpm tauri android init
 
+      # Tauri's android template pins Kotlin 1.9.x, but tauri-plugin-biometry
+      # ships Kotlin 2.1 metadata. Bump the Gradle Kotlin plugin so it compiles.
+      - name: Bump Android Kotlin for plugin compatibility
+        run: sed -i -E 's/(kotlin-gradle-plugin:)[0-9.]+/\12.1.0/' src-tauri/gen/android/build.gradle.kts
+
       # android init scaffolds default Tauri launcher icons; regenerate from our
       # logo so the APK ships the real app icon.
       - name: Apply app icon to Android project

@@ -43,6 +43,11 @@ jobs:
       - name: Initialize Android project
         run: pnpm tauri android init
 
+      # tauri-plugin-biometry ships Kotlin 2.1 metadata; bump the template's
+      # Kotlin plugin (pinned to 1.9.x) so it compiles.
+      - name: Bump Android Kotlin for plugin compatibility
+        run: sed -i -E 's/(kotlin-gradle-plugin:)[0-9.]+/\12.1.0/' src-tauri/gen/android/build.gradle.kts
+
       - name: Build Android APK
         run: pnpm tauri android build --apk --debug
 
