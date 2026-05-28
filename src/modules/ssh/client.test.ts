@@ -68,7 +68,7 @@ describe('sshConnect — transport selection', () => {
 });
 
 describe('native SSH command args', () => {
-  it('uses Rust snake_case parameter names for primitive command args', async () => {
+  it('passes camelCase arg keys (Tauri maps them to the Rust snake_case params)', async () => {
     vi.mocked(tauriCore.isTauri).mockReturnValue(true);
     vi.mocked(tauriLib.command).mockResolvedValue(undefined);
 
@@ -77,9 +77,9 @@ describe('native SSH command args', () => {
     await sshResize('abc', 120, 40);
     await sshDisconnect('abc');
 
-    expect(tauriLib.command).toHaveBeenCalledWith('ssh_start_output', { session_id: 'abc' });
-    expect(tauriLib.command).toHaveBeenCalledWith('ssh_send_input', { session_id: 'abc', data: [1, 2] });
-    expect(tauriLib.command).toHaveBeenCalledWith('ssh_resize', { session_id: 'abc', cols: 120, rows: 40 });
-    expect(tauriLib.command).toHaveBeenCalledWith('ssh_disconnect', { session_id: 'abc' });
+    expect(tauriLib.command).toHaveBeenCalledWith('ssh_start_output', { sessionId: 'abc' });
+    expect(tauriLib.command).toHaveBeenCalledWith('ssh_send_input', { sessionId: 'abc', data: [1, 2] });
+    expect(tauriLib.command).toHaveBeenCalledWith('ssh_resize', { sessionId: 'abc', cols: 120, rows: 40 });
+    expect(tauriLib.command).toHaveBeenCalledWith('ssh_disconnect', { sessionId: 'abc' });
   });
 });
