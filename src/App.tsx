@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Button, Group, Modal, Stack, Text } from '@mantine/core';
+import { Box, Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { AppShell } from './modules/shell/AppShell';
 import { ProfileForm } from './modules/profiles/ProfileForm';
@@ -14,13 +14,14 @@ import { useSync } from './modules/sync/useSync';
 import { UnlockScreen } from './modules/auth/UnlockScreen';
 import { SetupModal } from './modules/auth/SetupModal';
 import { AccountModal } from './modules/auth/AccountModal';
-import { AccountFooter } from './modules/shell/AccountFooter';
+import { AccountFooter, UpdateButton } from './modules/shell/AccountFooter';
 
 function InnerApp() {
   const { addSession } = useWorkspace();
   const { profiles, loading, error, reload, create, update, remove } = useProfiles();
   const { state, key, user, biometricAvailable, signUp, signIn, unlock, unlockBiometric, rememberKey, signOut } = useAuth();
   const { status: syncStatus, lastSyncedAt } = useSync(key, reload);
+  const updater = useUpdater();
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -85,11 +86,16 @@ function InnerApp() {
   };
 
   const footer = (
-    <>
+    <Box pt={6} style={{ borderTop: '1px solid var(--mantine-color-dark-4)' }}>
+      {updater.ready && (
+        <Box px={8} pb={6}>
+          <UpdateButton version={updater.version} onRestart={() => void updater.restart()} />
+        </Box>
+      )}
       {state === 'not-configured' && <AccountFooter state="not-configured" onClick={handleFooterClick} />}
       {state === 'locked' && user && <AccountFooter state="locked" user={user} onClick={handleFooterClick} />}
       {state === 'unlocked' && user && <AccountFooter state="unlocked" user={user} lastSyncedAt={lastSyncedAt} syncStatus={syncStatus} onClick={handleFooterClick} />}
-    </>
+    </Box>
   );
 
   return (
@@ -159,7 +165,6 @@ function InnerApp() {
 }
 
 function App() {
-  useUpdater();
   return (
     <WorkspaceProvider>
       <InnerApp />
