@@ -2,11 +2,14 @@ import { useForm } from '@mantine/form';
 import {
   Button,
   ColorInput,
+  Divider,
   Group,
   NumberInput,
   PasswordInput,
+  ScrollArea,
   SegmentedControl,
   Stack,
+  Table,
   TagsInput,
   Text,
   Textarea,
@@ -168,6 +171,31 @@ export function ProfileForm({ initial, onSubmit, onCancel }: Props) {
           {...form.getInputProps('color')}
         />
         <Textarea label="Notes (optional)" autosize {...form.getInputProps('notes')} />
+        {initial?.history && initial.history.length > 0 && (
+          <>
+            <Divider label="Verbindungs-Historie" labelPosition="center" my="sm" />
+            <ScrollArea.Autosize mah={200}>
+              <Table fz="xs" stickyHeader>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Zeit</Table.Th>
+                    <Table.Th>Status</Table.Th>
+                    <Table.Th>Gerät</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {initial.history.map((e) => (
+                    <Table.Tr key={e.id}>
+                      <Table.Td>{new Date(e.at).toLocaleString()}</Table.Td>
+                      <Table.Td>{e.outcome === 'connected' ? 'Verbunden' : `Fehler: ${e.errorCategory ?? 'unbekannt'}`}</Table.Td>
+                      <Table.Td>{e.deviceId.slice(0, 8)}</Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea.Autosize>
+          </>
+        )}
         <Group justify="flex-end" mt="md">
           <Button variant="default" onClick={onCancel}>
             Cancel
