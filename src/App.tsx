@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
@@ -12,6 +12,11 @@ import { exportProfilesToJson, downloadJson, parseProfilesImport } from './modul
 import { useUpdater } from './modules/updater/useUpdater';
 import { useAuth } from './modules/auth/useAuth';
 import { useSync } from './modules/sync/useSync';
+import { SyncConflictModal } from './modules/sync/SyncConflictModal';
+import { fetchSettings, pushSettings, DEFAULT_SETTINGS, type SyncSettings } from './modules/settings/settings';
+import { createProfileStorage } from './modules/profiles/storage';
+import { markDirtyPersisted } from './modules/sync/syncMeta';
+import type { ConnectionEvent } from './modules/profiles/types';
 import { UnlockScreen } from './modules/auth/UnlockScreen';
 import { SetupModal } from './modules/auth/SetupModal';
 import { AccountModal } from './modules/auth/AccountModal';
@@ -19,10 +24,40 @@ import { AccountFooter, UpdateButton } from './modules/shell/AccountFooter';
 
 function InnerApp() {
   const { addSession } = useWorkspace();
-  const { profiles, loading, error, reload, create, update, remove } = useProfiles();
+  const { profiles, loading, error, reload, create: createRaw, update: updateRaw, remove: removeRaw } = useProfiles();
   const { state, key, user, biometricAvailable, signUp, signIn, unlock, unlockBiometric, rememberKey, signOut } = useAuth();
-  const { status: syncStatus, lastSyncedAt } = useSync(key, reload);
+  const { status: syncStatus, lastSyncedAt, conflicts, resolveConflict } = useSync(key, reload);
   const updater = useUpdater();
+
+  const create = async (input: Parameters<typeof createRaw>[0]) => {
+    const p = await createRaw(input);
+    await markDirtyPersisted(p.id);
+    return p;
+  };
+  const update = async (id: string, patch: Parameters<typeof updateRaw>[1]) => {
+    const p = await updateRaw(id, patch);
+    await markDirtyPersisted(id);
+    return p;
+  };
+  const remove = async (id: string) => {
+    await removeRaw(id);
+    await markDirtyPersisted(id);
+  };
+
+  const [settings, setSettings] = useState<SyncSettings>(DEFAULT_SETTINGS);
+  useEffect(() => {
+    if (state === 'unlocked' && key) void fetchSettings(key).then(setSettings);
+  }, [state, key]);
+
+  const handleToggleSyncHistory = async (value: boolean) => {
+    const next = { ...settings, syncConnectionHistory: value };
+    setSettings(next);
+    if (key) await pushSettings(key, next);
+  };
+
+  const appendHistory = async (profileId: string, event: ConnectionEvent) => {
+    await createProfileStorage().appendHistoryEvent(profileId, event);
+  };
 
   // Sidebar: a pushing panel on desktop (open by default), an overlay drawer on
   // mobile (closed by default, auto-closes when a session opens so the terminal shows).
@@ -128,10 +163,12 @@ function InnerApp() {
       </Modal>
 
       {user && (
-        <AccountModal opened={accountOpen} onClose={() => setAccountOpen(false)} user={user} syncStatus={syncStatus} lastSyncedAt={lastSyncedAt} biometricAvailable={state === 'unlocked' && biometricAvailable} onRememberDevice={handleRememberDevice} onSignOut={async () => { await signOut(); setAccountOpen(false); }} onExport={handleExport} onImport={() => importInputRef.current?.click()} />
+        <AccountModal opened={accountOpen} onClose={() => setAccountOpen(false)} user={user} syncStatus={syncStatus} lastSyncedAt={lastSyncedAt} biometricAvailable={state === 'unlocked' && biometricAvailable} syncConnectionHistory={settings.syncConnectionHistory} onToggleSyncHistory={handleToggleSyncHistory} onRememberDevice={handleRememberDevice} onSignOut={async () => { await signOut(); setAccountOpen(false); }} onExport={handleExport} onImport={() => importInputRef.current?.click()} />
       )}
 
       <input ref={importInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={(e) => { const file = e.target.files?.[0]; if (file) void handleImport(file); e.target.value = ''; }} />
+
+      <SyncConflictModal conflicts={conflicts} onResolve={(id, choice) => void resolveConflict(id, choice)} />
 
       <AppShell
         footer={footer}
@@ -156,7 +193,7 @@ function InnerApp() {
           )
         }
       >
-        <Workspace profiles={profiles} onUpdateHistory={update} />
+        <Workspace profiles={profiles} onAppendHistory={appendHistory} />
 
         <Modal opened={editorOpen} onClose={() => setEditorOpen(false)} title={editing ? 'Edit profile' : 'New profile'} size="lg">
           <ProfileForm
