@@ -78,24 +78,4 @@ describe('ProfileStorage (in-memory)', () => {
     expect(created.envVars).toEqual({ EDITOR: 'vim' });
     expect(created.jumpHostId).toBeNull();
   });
-
-  it('stores and retrieves connection history fields', async () => {
-    const storage = createInMemoryStorage();
-    const now = new Date().toISOString();
-    const created = await storage.create({
-      name: 'hist',
-      host: 'h',
-      port: 22,
-      username: 'u',
-      auth: { kind: 'password', password: 'p' },
-    });
-    const updated = await storage.update(created.id, {
-      lastConnectedAt: now,
-      lastHostKeyFingerprint: 'SHA256:abc123',
-      lastErrorCategory: 'auth_failed',
-    });
-    expect(updated.lastConnectedAt).toBe(now);
-    expect(updated.lastHostKeyFingerprint).toBe('SHA256:abc123');
-    expect(updated.lastErrorCategory).toBe('auth_failed');
-  });
 });

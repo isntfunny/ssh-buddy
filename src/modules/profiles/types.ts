@@ -7,6 +7,15 @@ export type AuthMethod =
   | { kind: 'password'; password: string }
   | { kind: 'privateKey'; pem: string; passphrase?: string };
 
+export type ConnectionEvent = {
+  id: string;
+  at: string; // ISO timestamp
+  outcome: 'connected' | 'error';
+  errorCategory?: string;
+  hostKeyFingerprint?: string;
+  deviceId: string;
+};
+
 export type Profile = {
   id: string;
   name: string;
@@ -21,10 +30,10 @@ export type Profile = {
   snippets?: Snippet[];
   envVars?: Record<string, string>;
   jumpHostId?: string | null;
-  // Connection history (updated by the app after connect/error)
-  lastConnectedAt?: string;
-  lastHostKeyFingerprint?: string;
-  lastErrorCategory?: string;
+  // Append-only connection log (union-merged, not part of conflict logic)
+  history?: ConnectionEvent[];
+  // Tombstone: when set, the profile is deleted but still syncs
+  deletedAt?: string;
   createdAt: string;
   updatedAt: string;
 };
